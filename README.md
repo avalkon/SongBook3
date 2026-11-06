@@ -10,14 +10,22 @@ band members aiming for the fewest instrument changes between songs.
 
 # Contents:
 1: Installation
+
 2: Playing Music
+
 3: Using Setlists
+
 4: Using Lyrics
+
 5: Controls
+
 6: Settings
 
 
 # INSTALLATION
+
+# Plugin:
+
 # NEW INSTALL:
 1. Extract the complete Sinduriel folder directly into:
    (c:\\, proton pfx, etc)Documents/The Lord of the Rings Online/Plugins/
@@ -83,6 +91,23 @@ The following account/character data names are used:
 No other plugin's data is loaded, migrated, or overwritten. Other Songbook plugins can
 remain installed in their own creator folders. Do not remove the SongBook3 data
 files if you want to retain your current SongBook3 configuration.
+
+# SongBook3 Setlist Planner:
+Move the SongBook_Planner folder to wherever you want it, and either copy your 
+SongBook3Data.plugindata and SongBook3Setlists.plugindata to the folder containing the 
+program files, or follow the directions for songbook3live.sh below. For Linux users, mark 
+run_songbook_planner.sh as executable, then run it. Alternatively, if you want to read your 
+actual live library plugindata and add setlists directly to your live setlist plugindata, edit
+songbook3live.sh with your plugindata file paths, then run it. To exit, click the shut down 
+button in the top right corner. If you don't, it will continue running in the background
+until you manually kill the process or reopen the web page and click shut down.
+For Windows users, you'll need to install python, then run:
+
+```python3 songbook_planner.py SongBook3.plugindata```
+
+from inside the folder. I'll try to put together a .bat file to do it automatically. To exit, 
+click the shut down button in the top right corner. If you don't, it will continue running 
+in the background until you manually kill the process or reopen the web page and click shut down.
 
 
 # COMMANDS
