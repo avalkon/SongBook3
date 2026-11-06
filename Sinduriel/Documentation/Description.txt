@@ -1,0 +1,77 @@
+--- Credit Where it's Due ---
+Chiran, for the original Songbook
+The Brandy Badgers, for improvements on the original
+Almiyan, for Songbook 2 BBLE
+Elamond, for their patch to BBLE
+Thurallor, for the original perl library builder
+
+Without all of these fine people, this version probably wouldn't exist!
+
+--- Overview ---
+
+Songbook 3 is a plugin for browsing your abc files, searching by artist, organizing setlists, checking band readiness, synchronizing players, tracking songs played this session, and automatically selecting lyrics, and sending them from a built-in window. 
+
+The plugin consists of two parts, an in-game plugin which displays the song library, and an external program, with both an HTA file for Windows or Perl script for Linux/Mac/Windows. They're fairly easy to check for safety. SongBook3 uses new plugindata files and filenames, it MAY read older songbook2 libraries if the plugindata files are renamed, but it hasn't been well tested. The full library builder instructions are in the User_Manual.pdf in the Documentation folder.
+
+ABC part names: Both library builders read %%part-name along with T:. When the T: title does not identify a supported instrument, the plugin uses %%part-name for the part-list label and instrument detection while retaining the original T: title for song display and sync matching. Rebuild your song library once after installing this update to populate the new part-name metadata.
+
+
+### Features ###
+
+- Integrated Lyrics - Lyrics no longer require a separate plugin. The lyrics panel features the same browser as the Main panel, to find the right file easily. If your song and lyric files/folders are mirrored in name/location, you can jump directly to the song selected in the main window(This may not work well for multi-part songs that have separate instrument files since the lyric link builder works via filenames and locations). If not, you can still create links between songs and lyrics(Like for multipart songs with individual files), so you can immediately jump to the right lyrics next time. It is not as featured as Poetical, if you use Poetical for things other than lyrics, it is still superior. There is also no editor or creator, you'll need to modify the .txt file itself to change something.
+
+
+- Shareable Set Lists - Create and share set lists with other users of SongBook3. You can use this feature to create event-specific playlists, as an easy way to group music by genre, etc. You can also share your setlist with anyone in your fellowship who is using SongBook3. Full guide in the User_Manual.pdf.
+
+
+- Band-Specific - The 'Play Sync' button now immediately turns into 'Send Sync Info' after clicking it the first time, so you can now just double click 'Play Sync'. The old 'Send Sync Info button is now called 'Announce Song'. This button sends the song to other members like it would if you synced it, without having to actually sync the song. Sync confirmation requires all band members to have the same library structure, as it uses filepaths and filenames, not just filenames. If the structure is not the same, you will see a message saying you do not have the same song. It will still play correctly, though.
+
+Attempting to start Sync Play with an incorrect instrument opens the Sync Check window, where you can see what parts were synced with what instruments and continue to play. Starting with an empty part does not trigger an error. Some instruments are not correctly recognized, even when they are correct. This could be an abc file-specific issue, it's currently unclear exactly what causes it. This panel has a play button that overrides all error checking, and you can use it at any time, not just when bypassing an error.
+
+A new encoded full-path tag (or short hash for long paths) distinguishes duplicate filenames in different directories when sending sync info or announcing a song. Both clients should be using the same library structure. A hash collision remains theoretically possible. The old SongBook2 12-field @SBL messages Should still be compatible with SongBook2.
+
+
+--- Old Bug/Issue Fixes ---
+
+- 'Fixed' cross-plugin handler bug - Hover across 'Play Sync' briefly(literally just pass over it with the cursor) to reattach Songbook's chat callback when necessary if another plugin (like Minstrelbuff II) replaces the shared Turbine.Chat.Received event. This preserves the existing handler and will print one warning per successful repair. If you aren't getting Sync messages from other band members and you have other plugins running, this is almost certainly the problem and solution.
+
+- Support for nested subdirectories - Previous versions, in my experience, could only read one subdirectory deep.  That's fine for single-folder libraries, but I wanted to be able to keep multiple libraries available and sorted. One of my favorite parts of this fix is that you can have multiple top-level libraries in your music folder, and still have those folders subdivided into categories, whether by part numbers, themes, whatever. Especially useful if you play with more than one band and those bands use different libraries. You no longer have to intermix multiple band libraries.
+
+
+### Installation ###
+
+Unzip the whole Sinduriel folder to Documents/The Lord of the Rings Online/Plugins/ (or equivalent Linux/mac Proton/Wine prefix directory).
+
+--- Building Your Library ---
+
+Any existing Songbook 2 library won't be seen by this plugin. Build and update your new plugindata files using the included Perl or HTA files before trying to load the plugin. For further information/instructions, see the User_Manual.pdf in the Documentation folder. 
+
+To build library:
+
+Using the .hta file:
+The .hta file is compatible with Windows XP through 11. Double click SongBook3_LibraryBuilder.hta to run it.
+
+Using the perl file:
+The Perl file is compatible with any Operating System that has Perl installed. Mark it as executable and run it via terminal/command line directly from the plugin folder, as it requires user input but does not create a gui window:
+
+  perl SongBook3_Scanner.pl 
+
+Explicit file paths can be set in the command to avoid requiring interaction, see User_Manual.pdf in Documentation.
+Special thanks to Thurallor for the original perl file this one was built on!
+
+--- Playing Music ---
+Solo:
+To play a song, simply load the plugin, either through the Plugin Manager or with '/plugins load "Songbook3"', navigate through your library in the main window, select a song(and part, if applicable), enter music mode(either by clicking the M button, clicking your equipped instrument in the Songbook Quickslot, or by typing '/music') and click play!
+
+Band:
+Songbook 3 is backwards-compatible with SongbookBBLE to some extent, though some features may not work across platforms. To play a song, navigate to the song in your library, select a part, click the 'Play Sync' button twice, once all members have synced, click 'Start Sync Play'. 
+
+--- Setlists ---
+To build a setlist, click 'Setlists', type a name for your setlist, click 'Create/Open', navigate to a song in the main window, click 'Add Song' in the setlist window, repeat. To remove a song, click 'Remove'. To rearrange, highlight a song and click 'move up' or 'move down'. Clicking a song in the setlist also opens it in the main window. To see a list of songs you've played this session, click 'Session'. Full instructions in User_Manual.pdf
+
+To play from a setlist, simply select the first (or any) song, and proceed to play or sync as usual. After starting a song, just click 'Next Song' or click any song from the setlist or main window and Sync or Announce to send the next song to the fellowship. Songbook2 users SHOULD see the song appear just like normal in their version if their library structure is the same, but no promises. If other band members are using this version, you can share and receive setlists to/from them in-game. Full instructions in User_Manual.pdf
+
+--- Lyrics ---
+If your library folders are set up with abc songs and txt lyrics files mirroring each other, you can open the Lyrics window and click 'Jump To Main Song' to automatically select the correct lyrics file. If your library isn't set up that way, you can browse your lyrics folders, find the correct song, and create a link, so next time you select that song, 'Jump To Main Song' will work properly. You can also clear links, including automatically assigned links. See User_Manual.pdf for preferred folder structure and full instructions.
+
+

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SongBook3 Library Builder</title>
+<HTA:APPLICATION
+    APPLICATIONNAME="SongBook3 Library Builder"
+    SINGLEINSTANCE="yes"
+    SCROLL="yes"
+    WINDOWSTATE="normal"
+    BORDER="thick"
+    CAPTION="yes"
+    SHOWINTASKBAR="yes"
+    SYSMENU="yes"
+    WIDTH="700"
+    HEIGHT="590"
+>
+<style type="text/css">
+body { font-family: Tahoma, Arial, sans-serif; font-size: 10pt; margin: 18px; color: #202020; background: #f4f4f4; }
+h2 { font-size: 16pt; margin: 0 0 8px 0; }
+p { line-height: 1.35; }
+.field { margin-top: 13px; }
+.field label { display: block; font-weight: bold; margin-bottom: 4px; }
+.path { width: 390px; }
+button { min-width: 90px; padding: 4px 10px; margin-left: 5px; }
+#BuildButton { min-width: 180px; margin: 18px 0 8px 0; font-weight: bold; }
+#Status { margin-top: 12px; padding: 10px; border: 1px solid #b8b8b8; background: #fff; min-height: 58px; white-space: normal; }
+.small { font-size: 9pt; color: #555; }
+</style>
+<script language="JScript">
+function GetAppFolder() {
+    var p = decodeURIComponent(window.location.pathname);
+    if (p.length > 2 && p.charAt(0) == "/" && p.charAt(2) == ":") p = p.substring(1);
+    p = p.replace(/\//g, "\\");
+    return p.substring(0, p.lastIndexOf("\\"));
+}
+</script>
+<script language="VBScript">
+Option Explicit
+
+Dim fso, shell, lotroHome, appFolder
+
+Sub Initialize()
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set shell = CreateObject("WScript.Shell")
+    appFolder = GetAppFolder()
+    lotroHome = fso.BuildPath(shell.SpecialFolders("MyDocuments"), "The Lord of the Rings Online")
+    document.getElementById("MusicPath").Value = fso.BuildPath(lotroHome, "Music")
+    document.getElementById("PluginDataPath").Value = fso.BuildPath(lotroHome, "PluginData")
+    document.getElementById("AccountName").Value = ""
+
+    If Not fso.FolderExists(document.getElementById("MusicPath").Value) Then
+        document.getElementById("Status").InnerHTML = "The default LOTRO Music folder was not found. Browse to your Music folder below."
+    Else
+        document.getElementById("Status").InnerHTML = "Ready. The builder will scan ABC music files and mirrored TXT lyrics, then update every account folder it finds in PluginData."
+    End If
+End Sub
+
+Sub BrowseMusic()
+    Dim selected
+    selected = BrowseFolder(document.getElementById("MusicPath").Value, "Select your LOTRO Music folder")
+    If Len(selected) > 0 Then document.getElementById("MusicPath").Value = selected
+End Sub
+
+Sub BrowsePluginData()
+    Dim selected
+    selected = BrowseFolder(document.getElementById("PluginDataPath").Value, "Select your LOTRO PluginData folder")
+    If Len(selected) > 0 Then document.getElementById("PluginDataPath").Value = selected
+End Sub
+
+Function BrowseFolder(startPath, title)
+    Dim app, folder
+    BrowseFolder = ""
+    Set app = CreateObject("Shell.Application")
+    Err.Clear
+    On Error Resume Next
+    Set folder = app.BrowseForFolder(0, title, 0, startPath)
+    If Err.Number = 0 Then
+        If Not folder Is Nothing Then BrowseFolder = folder.Self.Path
+    End If
+    Err.Clear
+    On Error GoTo 0
+End Function
+
+Sub BuildLibrary()
+    Dim musicPath, pluginDataPath, songs, lyrics, songPaths, lyricPaths
+    Dim songDirs, lyricDirs, songLines, lyricLines, i, tracks, parseError
+    Dim songOut, lyricsOut, accounts, account, targetDir, songCount, lyricCount
+
+    musicPath = Trim(document.getElementById("MusicPath").Value)
+    pluginDataPath = Trim(document.getElementById("PluginDataPath").Value)
+    If Not fso.FolderExists(musicPath) Then
+        document.getElementById("Status").InnerHTML = "<font color='red'>Music folder not found:</font><br/>" & HtmlEncode(musicPath)
+        Exit Sub
+    End If
+    If Len(pluginDataPath) = 0 Then
+        document.getElementById("Status").InnerHTML = "<font color='red'>Please enter the LOTRO PluginData folder.</font>"
+        Exit Sub
+    End If
+
+    document.getElementById("Status").InnerHTML = "Scanning ABC music files and mirrored lyrics. This may take a little while for large libraries..."
+    window.status = "SongBook3: scanning music library..."
+
+    Set songs = New Collection
+    CollectFiles musicPath, "abc", songs
+    songPaths = CollectionToArray(songs)
+    If songs.Count > 1 Then QuickSort songPaths, LBound(songPaths), UBound(songPaths)
+
+    Set lyrics = New Collection
+    If fso.FolderExists(fso.BuildPath(musicPath, "lyrics")) Then
+        CollectFiles fso.BuildPath(musicPath, "lyrics"), "txt", lyrics
+    End If
+    lyricPaths = CollectionToArray(lyrics)
+    If lyrics.Count > 1 Then QuickSort lyricPaths, LBound(lyricPaths), UBound(lyricPaths)
+
+    Set songDirs = CreateObject("Scripting.Dictionary")
+    songDirs.CompareMode = 0
+    songDirs.Add "/", True
+    Set lyricDirs = CreateObject("Scripting.Dictionary")
+    lyricDirs.CompareMode = 0
+    lyricDirs.Add "/", True
+
+    Set songLines = New Collection
+    AddLine songLines, "return {"
+    AddLine songLines, vbTab & "Songs = {"
+
+    For i = 0 To UBoundSafe(songPaths)
+        parseError = ""
+        Set tracks = ParseABC(songPaths(i), parseError, songArtist)
+        If Len(parseError) > 0 Then
+            document.getElementById("Status").InnerHTML = "<font color='red'>Could not index this ABC file:</font><br/>" & HtmlEncode(songPaths(i)) & "<br/><br/>" & HtmlEncode(parseError) & "<br/><br/>No generated index has been replaced. Correct the file and try again."
+            window.status = "SongBook3: scan stopped"
+            Exit Sub
+        End If
+        Dim songFolder, songName, track, songArtist
+        songFolder = RelativeFolder(songPaths(i), musicPath)
+        AddDirectoryAndParents songDirs, songFolder
+        songName = fso.GetBaseName(songPaths(i))
+        AddLine songLines, vbTab & vbTab & "{"
+        AddLine songLines, vbTab & vbTab & vbTab & "Filepath = " & LuaQuote(songFolder) & ";"
+        AddLine songLines, vbTab & vbTab & vbTab & "Filename = " & LuaQuote(songName) & ";"
+        If Len(songArtist) > 0 Then AddLine songLines, vbTab & vbTab & vbTab & "Artist = " & LuaQuote(songArtist) & ";"
+        AddLine songLines, vbTab & vbTab & vbTab & "Tracks = {"
+        For Each track In tracks
+            AddLine songLines, vbTab & vbTab & vbTab & vbTab & "{"
+            AddLine songLines, vbTab & vbTab & vbTab & vbTab & vbTab & "Id = " & LuaQuote(track("Id")) & ";"
+            If track.Exists("Name") Then AddLine songLines, vbTab & vbTab & vbTab & vbTab & vbTab & "Name = " & LuaQuote(track("Name")) & ";"
+            If track.Exists("PartName") Then AddLine songLines, vbTab & vbTab & vbTab & vbTab & vbTab & "PartName = " & LuaQuote(track("PartName")) & ";"
+            If track.Exists("Artist") Then AddLine songLines, vbTab & vbTab & vbTab & vbTab & vbTab & "Artist = " & LuaQuote(track("Artist")) & ";"
+            AddLine songLines, vbTab & vbTab & vbTab & vbTab & "};"
+        Next
+        AddLine songLines, vbTab & vbTab & vbTab & "}"
+        AddLine songLines, vbTab & vbTab & "};"
+    Next
+    AddLine songLines, vbTab & "};"
+    AddLine songLines, vbTab & "Directories = {"
+    AddSortedDictionaryKeys songLines, songDirs
+    AddLine songLines, vbTab & "}"
+    AddLine songLines, "}"
+
+    Set lyricLines = New Collection
+    AddLine lyricLines, "return {"
+    AddLine lyricLines, vbTab & "Lyrics = {"
+    For i = 0 To UBoundSafe(lyricPaths)
+        Dim lyricText, lyricName, lyricFolder, textLines, j, oneLine
+        parseError = ""
+        lyricText = ReadUtf8Text(lyricPaths(i), parseError)
+        If Left(lyricText, 1) = ChrW(&HFEFF) Then lyricText = Mid(lyricText, 2)
+        If Len(parseError) > 0 Then
+            document.getElementById("Status").InnerHTML = "<font color='red'>Could not read this lyric file:</font><br/>" & HtmlEncode(lyricPaths(i)) & "<br/><br/>" & HtmlEncode(parseError)
+            window.status = "SongBook3: scan stopped"
+            Exit Sub
+        End If
+        lyricFolder = RelativeFolder(lyricPaths(i), fso.BuildPath(musicPath, "lyrics"))
+        AddDirectoryAndParents lyricDirs, lyricFolder
+        lyricName = fso.GetBaseName(lyricPaths(i))
+        If Len(lyricText) = 0 Then
+            textLines = Array()
+        Else
+            lyricText = Replace(lyricText, vbCrLf, vbLf)
+            lyricText = Replace(lyricText, vbCr, vbLf)
+            textLines = Split(lyricText, vbLf)
+            If Right(lyricText, 1) = vbLf Then
+                If UBound(textLines) >= 0 Then ReDim Preserve textLines(UBound(textLines) - 1)
+            End If
+        End If
+        AddLine lyricLines, vbTab & vbTab & "{"
+        AddLine lyricLines, vbTab & vbTab & vbTab & "Filepath = " & LuaQuote(lyricFolder) & ";"
+        AddLine lyricLines, vbTab & vbTab & vbTab & "Filename = " & LuaQuote(lyricName) & ";"
+        AddLine lyricLines, vbTab & vbTab & vbTab & "Lines = {"
+        If IsArray(textLines) Then
+            If UBoundSafe(textLines) >= 0 Then
+                For j = 0 To UBound(textLines)
+                    oneLine = CStr(textLines(j))
+                    AddLine lyricLines, vbTab & vbTab & vbTab & vbTab & LuaQuote(oneLine) & ";"
+                Next
+            End If
+        End If
+        AddLine lyricLines, vbTab & vbTab & vbTab & "}"
+        AddLine lyricLines, vbTab & vbTab & "};"
+    Next
+    AddLine lyricLines, vbTab & "};"
+    AddLine lyricLines, vbTab & "Directories = {"
+    AddSortedDictionaryKeys lyricLines, lyricDirs
+    AddLine lyricLines, vbTab & "}"
+    AddLine lyricLines, "}"
+
+    songOut = fso.BuildPath(appFolder, "SongBook3Data.plugindata")
+    lyricsOut = fso.BuildPath(appFolder, "SongBook3Lyrics.plugindata")
+    If Not WriteUtf8NoBom(songOut, Join(CollectionToArray(songLines), vbCrLf) & vbCrLf) Then
+        document.getElementById("Status").InnerHTML = "<font color='red'>Could not write the SongBook3 music index.</font><br/>" & HtmlEncode(songOut)
+        Exit Sub
+    End If
+    If Not WriteUtf8NoBom(lyricsOut, Join(CollectionToArray(lyricLines), vbCrLf) & vbCrLf) Then
+        document.getElementById("Status").InnerHTML = "<font color='red'>Could not write the SongBook3 lyrics index.</font><br/>" & HtmlEncode(lyricsOut)
+        Exit Sub
+    End If
+
+    If Not EnsureFolder(pluginDataPath) Then
+        document.getElementById("Status").InnerHTML = "<font color='red'>Could not create or access the PluginData folder:</font><br/>" & HtmlEncode(pluginDataPath)
+        Exit Sub
+    End If
+    Set accounts = GetAccountFolders(pluginDataPath)
+    If accounts.Count = 0 Then
+        account = Trim(document.getElementById("AccountName").Value)
+        If Len(account) = 0 Then
+            document.getElementById("Status").InnerHTML = "<font color='red'>No account folders were found.</font><br/>Enter your LOTRO account name in the optional field and run the builder again."
+            Exit Sub
+        End If
+        If account = "." Or account = ".." Or InStr(account, "\") > 0 Or InStr(account, "/") > 0 Then
+            document.getElementById("Status").InnerHTML = "<font color='red'>Please enter a valid LOTRO account name.</font>"
+            Exit Sub
+        End If
+        accounts.Add account, True
+    End If
+
+    For Each account In accounts.Keys
+        targetDir = fso.BuildPath(fso.BuildPath(pluginDataPath, CStr(account)), "AllServers")
+        If Not EnsureFolder(targetDir) Then
+            document.getElementById("Status").InnerHTML = "<font color='red'>Could not create account data folder:</font><br/>" & HtmlEncode(targetDir)
+            Exit Sub
+        End If
+        Err.Clear
+        On Error Resume Next
+        fso.CopyFile songOut, fso.BuildPath(targetDir, "SongBook3Data.plugindata"), True
+        If Err.Number <> 0 Then
+            document.getElementById("Status").InnerHTML = "<font color='red'>Could not copy the music index to:</font><br/>" & HtmlEncode(targetDir) & "<br/>" & HtmlEncode(Err.Description)
+            Err.Clear
+            On Error GoTo 0
+            Exit Sub
+        End If
+        fso.CopyFile lyricsOut, fso.BuildPath(targetDir, "SongBook3Lyrics.plugindata"), True
+        If Err.Number <> 0 Then
+            document.getElementById("Status").InnerHTML = "<font color='red'>Could not copy the lyrics index to:</font><br/>" & HtmlEncode(targetDir) & "<br/>" & HtmlEncode(Err.Description)
+            Err.Clear
+            On Error GoTo 0
+            Exit Sub
+        End If
+        On Error GoTo 0
+    Next
+
+    songCount = songs.Count
+    lyricCount = lyrics.Count
+    document.getElementById("Status").InnerHTML = "<font color='green'><b>Library generation complete.</b></font><br/>Found " & songCount & " ABC music files and " & lyricCount & " mirrored lyric files.<br/>Updated " & accounts.Count & " LOTRO account folder(s).<br/><br/>Indexes saved in:<br/>" & HtmlEncode(appFolder) & "<br/><br/>Reload SongBook3 in LOTRO if it is already running."
+    window.status = "SongBook3: library generation complete"
+End Sub
+
+Sub CollectFiles(folderPath, extension, output)
+    Dim folder, file, subfolder
+    Set folder = fso.GetFolder(folderPath)
+    For Each file In folder.Files
+        If LCase(fso.GetExtensionName(file.Name)) = LCase(extension) Then output.Add file.Path
+    Next
+    For Each subfolder In folder.SubFolders
+        ' Match File::Find's default behaviour: do not recurse into junctions.
+        If (subfolder.Attributes And 1024) = 0 Then
+            CollectFiles subfolder.Path, extension, output
+        End If
+    Next
+End Sub
+
+Function CollectionToArray(items)
+    Dim result(), i
+    If items.Count = 0 Then
+        CollectionToArray = Array()
+        Exit Function
+    End If
+    ReDim result(items.Count - 1)
+    For i = 1 To items.Count
+        result(i - 1) = items(i)
+    Next
+    CollectionToArray = result
+End Function
+
+Function UBoundSafe(value)
+    On Error Resume Next
+    UBoundSafe = UBound(value)
+    If Err.Number <> 0 Then
+        UBoundSafe = -1
+        Err.Clear
+    End If
+    On Error GoTo 0
+End Function
+
+Sub QuickSort(values, first, last)
+    Dim i, j, pivot, temp
+    i = first
+    j = last
+    pivot = LCase(CStr(values((first + last) \ 2)))
+    Do While i <= j
+        Do While LCase(CStr(values(i))) < pivot
+            i = i + 1
+        Loop
+        Do While LCase(CStr(values(j))) > pivot
+            j = j - 1
+        Loop
+        If i <= j Then
+            temp = values(i)
+            values(i) = values(j)
+            values(j) = temp
+            i = i + 1
+            j = j - 1
+        End If
+    Loop
+    If first < j Then QuickSort values, first, j
+    If i < last Then QuickSort values, i, last
+End Sub
+
+Function RelativeFolder(filePath, rootPath)
+    Dim rootFull, fileFull, relative, slash
+    rootFull = fso.GetAbsolutePathName(rootPath)
+    fileFull = fso.GetAbsolutePathName(filePath)
+    If Right(rootFull, 1) <> "\" Then rootFull = rootFull & "\"
+    relative = Mid(fileFull, Len(rootFull) + 1)
+    slash = InStrRev(relative, "\")
+    If slash > 0 Then relative = Left(relative, slash - 1) Else relative = ""
+    relative = Replace(relative, "\", "/")
+    If Len(relative) = 0 Then
+        RelativeFolder = "/"
+    Else
+        RelativeFolder = "/" & relative & "/"
+    End If
+End Function
+
+Function ParseABC(path, ByRef parseError, ByRef artist)
+    Dim result, text, lines, i, lineText, reX, reT, rePart, reC, matches, x, t, track, partName, credit
+    Set result = New Collection
+    parseError = ""
+    artist = ""
+    text = ReadUtf8Text(path, parseError)
+    If Len(parseError) > 0 Then
+        Set ParseABC = result
+        Exit Function
+    End If
+    text = Replace(text, vbCrLf, vbLf)
+    text = Replace(text, vbCr, vbLf)
+    lines = Split(text, vbLf)
+    Set reX = New RegExp
+    reX.Pattern = "^X:\s*(\d+)"
+    reX.IgnoreCase = True
+    reX.Global = False
+    Set reT = New RegExp
+    reT.Pattern = "^T: *(.+)"
+    reT.IgnoreCase = True
+    reT.Global = False
+    Set rePart = New RegExp
+    rePart.Pattern = "^%%part-name[ \t]+(.+)"
+    rePart.IgnoreCase = True
+    rePart.Global = False
+    Set reC = New RegExp
+    reC.Pattern = "^C:[ \t]*(.*)"
+    reC.IgnoreCase = True
+    reC.Global = False
+    x = 0
+    t = 0
+    For i = 0 To UBound(lines)
+        lineText = CStr(lines(i))
+        If i = 0 Then lineText = Replace(lineText, ChrW(&HFEFF), "")
+        Set matches = reX.Execute(lineText)
+        If matches.Count > 0 Then
+            Set track = CreateObject("Scripting.Dictionary")
+            track.Add "Id", matches(0).SubMatches(0)
+            result.Add track
+            x = x + 1
+        Else
+            Set matches = reT.Execute(lineText)
+            If matches.Count > 0 Then
+                If result.Count = 0 And x = 0 And t = 0 Then
+                    Set track = CreateObject("Scripting.Dictionary")
+                    track.Add "Id", "1"
+                    result.Add track
+                    x = x + 1
+                End If
+                If x <> t Then
+                    Set track = result(result.Count)
+                    track("Name") = matches(0).SubMatches(0)
+                    t = t + 1
+                End If
+            Else
+                Set matches = reC.Execute(lineText)
+                If matches.Count > 0 Then
+                    credit = Trim(matches(0).SubMatches(0))
+                    If Len(credit) > 0 Then
+                        If Len(artist) = 0 Then artist = credit
+                        If result.Count > 0 Then
+                            Set track = result(result.Count)
+                            If Not track.Exists("Artist") Then track("Artist") = credit
+                        End If
+                    End If
+                Else
+                    Set matches = rePart.Execute(lineText)
+                    If matches.Count > 0 And result.Count > 0 Then
+                        partName = Trim(matches(0).SubMatches(0))
+                        If Len(partName) > 0 Then
+                            Set track = result(result.Count)
+                            ' Preserve T: for LOTRO sync; PartName is an instrument fallback.
+                            track("PartName") = partName
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next
+    If x <> t Then parseError = "The number of X: track headers does not match the T: track titles."
+    Set ParseABC = result
+End Function
+
+Function ReadUtf8Text(path, ByRef readError)
+    Dim stream, textValue, textFile
+    readError = ""
+    ReadUtf8Text = ""
+    Err.Clear
+    On Error Resume Next
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.LoadFromFile path
+    textValue = stream.ReadText(-1)
+    stream.Close
+    If Err.Number <> 0 Then
+        readError = Err.Description
+        Err.Clear
+    ElseIf InStr(textValue, ChrW(&HFFFD)) > 0 Then
+        ' Older ABC/lyric files may use the active Windows ANSI code page.
+        Set textFile = fso.OpenTextFile(path, 1, False, -2)
+        If Err.Number = 0 Then
+            textValue = textFile.ReadAll
+            textFile.Close
+        Else
+            readError = Err.Description
+            Err.Clear
+        End If
+    End If
+    If Len(readError) = 0 Then ReadUtf8Text = textValue
+    Set stream = Nothing
+    On Error GoTo 0
+End Function
+
+Function LuaQuote(value)
+    Dim i, code, character, result
+    value = CStr(value)
+    result = Chr(34)
+    For i = 1 To Len(value)
+        character = Mid(value, i, 1)
+        code = AscW(character)
+        If code < 0 Then code = code + 65536
+        Select Case code
+            Case 0
+                result = result & Chr(92) & "000"
+            Case 1 To 8, 11, 12, 14 To 31
+                result = result & Chr(92) & Right("00" & CStr(code), 3)
+            Case 9
+                result = result & Chr(92) & "t"
+            Case 10
+                result = result & Chr(92) & "n"
+            Case 13
+                result = result & Chr(92) & "r"
+            Case 34
+                result = result & Chr(92) & Chr(34)
+            Case 92
+                result = result & Chr(92) & Chr(92)
+            Case Else
+                result = result & character
+        End Select
+    Next
+    LuaQuote = result & Chr(34)
+End Function
+
+Sub AddLine(lines, value)
+    lines.Add CStr(value)
+End Sub
+
+Sub AddDirectoryAndParents(directories, path)
+    Dim parts, part, current
+    directories("/") = True
+    path = Replace(path, "\", "/")
+    current = "/"
+    parts = Split(path, "/")
+    For Each part In parts
+        If Len(CStr(part)) > 0 Then
+            current = current & CStr(part) & "/"
+            If Not directories.Exists(current) Then directories.Add current, True
+        End If
+    Next
+End Sub
+
+Sub AddSortedDictionaryKeys(lines, dictionary)
+    Dim keys, i
+    keys = dictionary.Keys
+    If dictionary.Count > 1 Then QuickSort keys, LBound(keys), UBound(keys)
+    For i = LBound(keys) To UBound(keys)
+        AddLine lines, vbTab & vbTab & LuaQuote(CStr(keys(i))) & ";"
+    Next
+End Sub
+
+Function WriteUtf8NoBom(path, value)
+    Dim textStream, binaryStream, bytes
+    WriteUtf8NoBom = False
+    Err.Clear
+    On Error Resume Next
+    Set textStream = CreateObject("ADODB.Stream")
+    textStream.Type = 2
+    textStream.Charset = "utf-8"
+    textStream.Open
+    textStream.WriteText value
+    textStream.Position = 0
+    textStream.Type = 1
+    textStream.Position = 3
+    bytes = textStream.Read
+    textStream.Close
+    Set binaryStream = CreateObject("ADODB.Stream")
+    binaryStream.Type = 1
+    binaryStream.Open
+    binaryStream.Write bytes
+    binaryStream.SaveToFile path, 2
+    binaryStream.Close
+    If Err.Number = 0 Then
+        WriteUtf8NoBom = True
+    Else
+        Err.Clear
+    End If
+    Set textStream = Nothing
+    Set binaryStream = Nothing
+    On Error GoTo 0
+End Function
+
+Function EnsureFolder(path)
+    Dim parent
+    EnsureFolder = False
+    If fso.FolderExists(path) Then
+        EnsureFolder = True
+        Exit Function
+    End If
+    parent = fso.GetParentFolderName(path)
+    If Len(parent) > 0 And Not fso.FolderExists(parent) Then
+        If Not EnsureFolder(parent) Then Exit Function
+    End If
+    Err.Clear
+    On Error Resume Next
+    fso.CreateFolder path
+    EnsureFolder = fso.FolderExists(path)
+    Err.Clear
+    On Error GoTo 0
+End Function
+
+Function GetAccountFolders(pluginDataPath)
+    Dim result, rootFolder, childFolder, prefPath, stream, lineText, name
+    Set result = CreateObject("Scripting.Dictionary")
+    result.CompareMode = 0
+    If fso.FolderExists(pluginDataPath) Then
+        Set rootFolder = fso.GetFolder(pluginDataPath)
+        For Each childFolder In rootFolder.SubFolders
+            If LCase(childFolder.Name) <> "allservers" Then
+                If Not result.Exists(childFolder.Name) Then result.Add childFolder.Name, True
+            End If
+        Next
+    End If
+    If result.Count = 0 Then
+        prefPath = fso.BuildPath(lotroHome, "UserPreferences.ini")
+        If fso.FileExists(prefPath) Then
+            Err.Clear
+            On Error Resume Next
+            Set stream = fso.OpenTextFile(prefPath, 1, False, -2)
+            If Err.Number = 0 Then
+                Do While Not stream.AtEndOfStream
+                    lineText = Trim(stream.ReadLine)
+                    If LCase(Left(lineText, 9)) = "username=" Then
+                        name = Trim(Mid(lineText, 10))
+                        If Len(name) > 0 And Not result.Exists(name) Then result.Add name, True
+                    End If
+                Loop
+                stream.Close
+            End If
+            Err.Clear
+            On Error GoTo 0
+        End If
+    End If
+    Set GetAccountFolders = result
+End Function
+
+Function HtmlEncode(value)
+    value = CStr(value)
+    value = Replace(value, "&", "&amp;")
+    value = Replace(value, "<", "&lt;")
+    value = Replace(value, ">", "&gt;")
+    value = Replace(value, Chr(34), "&quot;")
+    HtmlEncode = value
+End Function
+</script>
+</head>
+<body onload="Initialize()">
+<h2>SongBook3 music library builder</h2>
+<p>This Windows tool scans your LOTRO Music folder for <b>.abc</b> files and the mirrored <b>lyrics</b> folder for <b>.txt</b> files. It creates the current SongBook3 music and lyrics indexes and copies them to your LOTRO account folders.</p>
+<div class="field">
+    <label for="MusicPath">LOTRO Music folder</label>
+    <input class="path" type="text" id="MusicPath" />
+    <button onclick="BrowseMusic()">Browse...</button>
+</div>
+<div class="field">
+    <label for="PluginDataPath">LOTRO PluginData folder</label>
+    <input class="path" type="text" id="PluginDataPath" />
+    <button onclick="BrowsePluginData()">Browse...</button>
+</div>
+<div class="field">
+    <label for="AccountName">LOTRO account name (only needed if no account folders or UserPreferences.ini entries are found)</label>
+    <input class="path" type="text" id="AccountName" />
+</div>
+<button id="BuildButton" onclick="BuildLibrary()">Build SongBook3 library</button>
+<div id="Status">Finding your LOTRO folders...</div>
+<p class="small">The generated SongBook3Data.plugindata and SongBook3Lyrics.plugindata files are also saved beside this tool. Existing PluginData files are replaced with the newly scanned indexes; settings, setlists, and lyric links are not changed.</p>
+</body>
+</html>
