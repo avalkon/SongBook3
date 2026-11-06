@@ -107,8 +107,12 @@ then run it. To exit, click the shut down button in the top right corner. If you
 it will continue running in the background until you manually kill the process or
 reopen the web page and click shut down.
 
-For Windows users, you'll need to install python, then double click songbook3planner.bat.
-This will run using your live plugindata files, edit the .bat if you want to use different files.
+- For Windows users, you'll need to install python, then edit songbook3planner.bat to change
+ACCOUNTNAME to the actual folder where your plugindata is, then double click songbook3planner.bat.
+This will run using your live plugindata files, edit the .bat to point to copies if you want
+to use different files.
+
+A .bak backup is created every time a setlist is added to the plugindata file.
 
 
 # COMMANDS
