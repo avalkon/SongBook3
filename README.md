@@ -108,10 +108,7 @@ it will continue running in the background until you manually kill the process o
 reopen the web page and click shut down.
 
 For Windows users, you'll need to install python, then double click songbook3planner.bat.
-
-from inside the folder. I'll try to put together a .bat file to do it automatically. To exit, 
-click the shut down button in the top right corner. If you don't, it will continue running 
-in the background until you manually kill the process or reopen the web page and click shut down.
+This will run using your live plugindata files, edit the .bat if you want to use different files.
 
 
 # COMMANDS
