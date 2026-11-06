@@ -1,2 +1,208 @@
-# SongBook3
-LotRO plugin for musicians
+# SongBook3 Installation and Overview
+
+SongBook3 is a LOTRO plugin for browsing your ABC music library, organizing setlists,
+checking band readiness, synchronizing players, tracking songs played in a session,
+and automatically selecting lyrics, and sending them from a built-in window. It will 
+not interfere or mess with existing SongbookBBLE or other Songbook plugins, and can 
+be installed alongside them, if desired.
+
+# Contents:
+1: Installation
+2: Playing Music
+3: Using Setlists
+4: Using Lyrics
+5: Controls
+6: Settings
+
+
+# INSTALLATION
+# NEW INSTALL:
+1. Extract the complete Sinduriel folder directly into:
+   (c:\\, proton pfx, etc)Documents/The Lord of the Rings Online/Plugins/
+
+2. On Windows(Linux, etc see step 3), double-click Plugins/Sinduriel/SongBook3_LibraryBuilder.hta 
+   (or use Plugins/Sinduriel/Run_SongBook3_LibraryBuilder.cmd if MSHta is not associated).
+
+3. On Linux, macOS, or Windows with Perl installed, you can instead run
+   Plugins/Sinduriel/SongBook3_Scanner.pl . The scanner uses Perl core modules and
+   no Unix-only shell commands. It accepts optional --music and --plugindata paths.
+   See Library_Builder_README.txt for detailed instructions.
+
+4. Both builders scan Music for ABC files and Music/lyrics for mirrored TXT lyric
+   files, save the generated indexes beside the builder in Sinduriel, and copy them
+   to each account's PluginData/<account>/AllServers folder.
+
+5. Run the builder again whenever song or lyric text files change, then reload
+   SongBook3 in LOTRO.
+
+   IMPORTANT FOR THIS UPDATE: Run the builder once even if your Music folder has
+   not changed. Both builders now include %%part-name entries in the song index.
+   When a T: title does not identify an instrument, SongBook3 uses %%part-name
+   for the part label and instrument checks. The original T: title is retained
+   for the song title and LOTRO sync/chat matching. If T: already identifies
+   an instrument, it still takes precedence over %%part-name.
+
+   NEW ARTIST METADATA: Both builders now treat the first nonempty C: header
+   in each ABC file as that song's original artist. They save Artist in
+   SongBook3Data.plugindata, and also retain per-track C: credits where present.
+   (ABC traditionally defines C: as composer; SongBook3 uses it as artist by
+   convention for this library.) Run the updated builder and reload SongBook3
+   whenever you edit C: fields. Older indexes still load, but have no artist
+   metadata until regenerated. Songs without C: are left uncredited.
+
+
+# UPDATING FROM ANOTHER SONGBOOK3 VESRION:
+- Unload SongBook3 and remove the old Plugins/Sinduriel/SongBook3 folder before loading this
+  release.
+- Install the new Sinduriel folder as described above.
+- Do not delete or rename the existing SongBook3 plugin-data files. The account and
+  character data names are unchanged, so existing SongBook3 settings, setlists,
+  library indexes, and manual lyric links continue to be used.
+- Run the included library builder once after installing this update to add
+  Artist metadata from ABC C: headers (and %%part-name metadata if upgrading
+  from an older release), then reload SongBook3.
+
+
+# PLUGIN IDENTITY AND DATA:
+The plugin package loads from the Sinduriel.SongBook3 namespace and its assets
+are stored in Sinduriel/SongBook3. Its LOTRO shell command is /songbook3.
+The library builder instructions are in Library_Builder_README.txt. Do not
+use older SongbookFiller.exe or songbook.hta utilities with this plugin; they write
+the legacy SongbookData format rather than the new SongBook3 indexes, and write the 
+wrong filenames.
+
+The following account/character data names are used:
+- SongBook3Data.plugindata
+- SongBook3Lyrics.plugindata
+- SongBook3LyricLinks.plugindata
+- SongBook3Setlists.plugindata
+- SongBook3Settings.plugindata
+
+No other plugin's data is loaded, migrated, or overwritten. Other Songbook plugins can
+remain installed in their own creator folders. Do not remove the SongBook3 data
+files if you want to retain your current SongBook3 configuration.
+
+
+# COMMANDS
+- /songbook3 show — show the main window.
+- /songbook3 hide — hide the main window.
+- /songbook3 toggle — toggle the main window.
+
+The floating SongBook3 icon toggles the full workspace, including auxiliary windows.
+Clicking the timer collapses the auxiliary workspace while leaving the timer and
+floating icon visible; clicking the timer again or the icon restores the previous
+window visibility.
+
+
+# HOW TO ACTUALLY USE IT
+- Solo:
+To play a song, simply load the plugin, either through the Plugin Manager or with:
+
+   /plugins load "Songbook3"
+
+Navigate through your library in the main window, select a song(and part, if applicable), enter music mode
+(either by clicking the M button, clicking your equipped instrument in the Songbook Quickslot, or by typing '/music') 
+and click play!
+
+- With a Band:
+To play a song, navigate to the song in your library, select a part(for multi-file songs, just pick the right file), 
+click the 'Play Sync' button twice, once all members have 
+synced, the leader clicks 'Start Sync Play'. 
+
+- Creating and using setlists:
+To build a setlist, click 'Setlists', type a name for your setlist, click 'Create/Open', navigate to a song in the main window, click 'Add Song' in the setlist window, repeat. To remove a song, click 'Remove'. To rearrange, highlight a song and click 'move up' or 'move down'. Clicking a song in the setlist also opens it in the main window. To see a list of songs you've played this session, click 'Session'. You can mark played songs unplayed, or add songs to the played list from the main window with 'Mark Played'. You can jump directly to a song in the Session list by clicking 'Select Song'. You can erase the session list with 'Reset Session'.
+
+- Using Lyrics:
+If your library folders are set up with abc songs and txt lyrics files mirroring each other, you can open the Lyrics window and click 'Jump To Main Song' to automatically select the correct lyrics file without having to manually link the files. If you don't have your library set up that way, you can browse your folders, find the correct lyric file, and then click 'Link To Main Song' to create a link, so next time you select that song, 'Jump To Main Song' will work properly. You can also clear links, including automatically assigned links. You can use the 'Previous'/'Next' buttons to navigate lyric lines, or simply click on a line to select it. The highlighted line is the line that will be sent if you click 'Send Line'. 
+
+Example folder structure for this feature to fully shine:
+
+Documents/Lord of the Rings Online/music/<
+--songs/favorites/5 parts/reaper5.abc
+--lyrics/favorites/5 parts/reaper5.txt
+
+It's some work to initially create the structure, but it's worth it to have automatic selection.
+
+# SETTINGS AND CONTROLS
+
+Most of the settings are self-explanatory. The Leader Mode checkbox turns on and off the 'Start Sync Play' button. If you're a band member that doesn't want to accidentally start sync play, you can uncheck the box. Count Down shows or hides the timer in the main window. 
+In the Lyrics tab, you can change the prefix(a symbol or series of symbols that is placed in front of each lyric line), set the comment prefix(default is '%', ignores/skips lines beginning with this symbol), choose whether to hide or show blank lines, and set a delay that disables the send button for that amount of time after clicking.
+
+# Controls:
+
+# Main Window:
+- 'M' activates/deactivates music mode
+- The first arrow button immediately plays the selected song solo
+- 'R' initiates a ready-check
+- The arrow pointing to a line button Syncs the currently selected song, it then turns into an arrow with squigglies, which sends Sync info.
+- The double arrow button sends the currently selected song to the fellowship.
+- The x:# shows what part you have selected. Clicking it will show/hide the parts box. If your parts box is missing, click here.
+- The arrow pointing from a line starts Synced play. This button can be disabled by unchecking 'Leader Mode' in the Settings panel.
+- 'S' sends an emote message saying what you are currently playing.
+- The circled UC button recovers the user channel
+- The +UC Button joins the user chat specified in Settings, if different from Fellowship or Raid.
+- Search and Clear allow you to search your library and clear your search.
+- In Settings > Band Settings, enable Artist search to show the new left-side
+  artist search field (replacing the old multi-filter panel). Enter part of an
+  artist's name and press Enter or click Search to find matching songs across
+  all folders. Clear resets only the artist search. If the regular title
+  search is also active, both searches must match. Disabling Artist search
+  restores the normal folder view (or existing title-search results).
+- The /e emote uses the song title plus "by <artist>" when C: is available.
+- In Settings > General, enable "Show description in song list" and "Show Artist"
+  to include C: artist credits in the song list. With "Artist after time" off,
+  the description reads "Title - Artist (M:SS) - Part"; with it on, it reads
+  "Title (M:SS) Artist - Part". The filename/description ordering still follows
+  "Show description first". Songs with no C: artist retain their old labels.
+  Rebuild the SongBook3 library after editing ABC C: fields.
+- The top box shows your folders, click '..' to go up a folder.
+- The middle box show the songs in the selected folder.
+- The bottom box shows the parts in the selected song.
+- Settings opens settings.
+- Setlists open setlists.
+- Lyrics opens lyrics.
+- Sync Check opens the sync check window.
+
+# Sync Check:
+- Refresh Check refreshes status.
+- The arrow button starts Synced Play.
+- Cancel closes the window.
+
+# Setlists:
+- Session switches to the session tab.
+- Mark Played in Session marks the song currently selected in the main panel as played.
+- Mark Unplayed removes the selected song from the session list.
+- Reset Session clears the list.
+- Select Song opens the selected song in the main panel.
+- Create/Open creates or opens the setlist name typed in the text box.
+- Add song adds the currently selected song in the main window to the selected setlist.
+- Remove removes the song from the setlist.
+- Move up/down moves the song selected in the setlist up or down in the list.
+- Previous/Next selects the next or previous song. You can also just click a song to select it.
+- Share Setlist opens the setlist sharing panel.
+
+# Share Setlist:
+- The squiggly arrow sends the part of the playlist. 
+- Close closes the panel.
+
+# Lyrics:
+- Jump to main song opens the song selected in the main panel in lyrics, if there is a linked file.
+- Link to main song establishes a link from the song in the main panel to the currently selected lyric file.
+- Clear Link removes the link.
+- The double arrow sends and advances to the next line.
+- Restart restarts.
+- Next/Previous can be used to navigate lines, or just click the desired line.
+
+
+# CUSTOMIZATION:
+You can replace the Timer Window background with any 150x94 pixel image you like, just copy it to 
+Sinduriel/SongBook3/ and rename it 'SongBook3Timer.tga'. rename the original to something like 
+SongBook3Timer.tga.old.
+
+# LANGUAGE
+There is limited localization carried over from BBLE. Localized LOTRO command
+aliases, instrument names, chat-message patterns, and existing translated labels.
+Translation coverage is partial: newer Lyrics, Session, and auxiliary-window labels
+are primarily English. The shell command accepts English actions and the legacy
+German/French action words: anzeigen/verstecken/umschalten and afficher/cacher/basculer.
+If you would like to contribute translations, please let me know!
