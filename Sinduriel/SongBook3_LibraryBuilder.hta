@@ -266,13 +266,15 @@ End Sub
 
 Sub CollectFiles(folderPath, extension, output)
     Dim folder, file, subfolder
+    ' Never scan .git folders, even if chosen as the root.
+    If LCase(fso.GetFileName(folderPath)) = ".git" Then Exit Sub
     Set folder = fso.GetFolder(folderPath)
     For Each file In folder.Files
         If LCase(fso.GetExtensionName(file.Name)) = LCase(extension) Then output.Add file.Path
     Next
     For Each subfolder In folder.SubFolders
-        ' Match File::Find's default behaviour: do not recurse into junctions.
-        If (subfolder.Attributes And 1024) = 0 Then
+        ' Skip Git metadata and junctions during recursive scanning.
+        If LCase(subfolder.Name) <> ".git" And (subfolder.Attributes And 1024) = 0 Then
             CollectFiles subfolder.Path, extension, output
         End If
     Next
@@ -570,7 +572,7 @@ Function GetAccountFolders(pluginDataPath)
     If fso.FolderExists(pluginDataPath) Then
         Set rootFolder = fso.GetFolder(pluginDataPath)
         For Each childFolder In rootFolder.SubFolders
-            If LCase(childFolder.Name) <> "allservers" Then
+            If LCase(childFolder.Name) <> "allservers" And LCase(childFolder.Name) <> ".git" Then
                 If Not result.Exists(childFolder.Name) Then result.Add childFolder.Name, True
             End If
         Next
