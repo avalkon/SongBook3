@@ -110,7 +110,8 @@ $plugin_data_dir = File::Spec->rel2abs($plugin_data_dir);
 
 opendir(my $dh, $plugin_data_dir) or die "Cannot read PluginData directory '$plugin_data_dir': $!\n";
 my @accounts = sort grep {
-    $_ ne '.' && $_ ne '..' && -d File::Spec->catdir($plugin_data_dir, $_)
+    $_ ne '.' && $_ ne '..' && lc($_) ne '.git'
+        && -d File::Spec->catdir($plugin_data_dir, $_)
 } readdir($dh);
 closedir($dh);
 
@@ -171,6 +172,12 @@ sub find_files {
     find({
         no_chdir => 1,
         wanted   => sub {
+            # Exclude .git repositories entirely, including their nested contents.
+            # File::Find gives an absolute/relative path in $_ with no_chdir.
+            if (-d $_ && lc(basename($_)) eq '.git') {
+                $File::Find::prune = 1;
+                return;
+            }
             return unless -f $_;
             return unless $_ =~ $pattern;
             push @found, File::Spec->rel2abs($File::Find::name);
