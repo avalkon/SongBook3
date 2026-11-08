@@ -1,3 +1,5 @@
+# HTA file is known broken, repair/replacement is actively underway, hopefully done by end of day.
+
 # SongBook3 Installation and Overview
 
 - SongBook3 is a LOTRO plugin for browsing your ABC music library, organizing setlists,
