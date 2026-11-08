@@ -651,7 +651,7 @@ function SongBook3Window:Constructor()
 	self.Version:SetForeColor( self.colourMessageTitle );
 	self.Version:SetPosition( 40, 25 );
 	self.Version:SetSize(50, 14);
-	self.Version:SetText("V1.20");
+	self.Version:SetText("V1.25.4");
 	
 	self.minWidth = 461;
 	self.minHeight = 308;
