@@ -67,7 +67,7 @@ The following account/character data names are used:
 No other plugin's data is loaded, migrated, or overwritten. Other Songbook plugins can remain installed in their own creator folders. Do not remove the SongBook3 data files if you want to retain your current SongBook3 configuration.
 
 # SongBook3 Setlist Planner:
-Move the SongBook_Planner folder to wherever you want it, and either: 
+Install Python3 and python3-odf(or create a venv and pip install odfpy), for spreadsheet export. Move the SongBook_Planner folder to wherever you want it, and either: 
 - copy your SongBook3Data.plugindata and SongBook3Setlists.plugindata to the folder containing the program files, mark run_songbook_planner.sh as executable, then run it.
 
 Or:
