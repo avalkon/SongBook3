@@ -1,5 +1,3 @@
-# Both HTA and Planner is known broken on Windows, repair/replacement is actively underway, hopefully done by end of day.
-
 # SongBook3 Installation and Overview
 
 - SongBook3 is a LOTRO plugin for browsing your ABC music library, organizing setlists,
@@ -34,11 +32,11 @@ Or use the auto-assignment then edit it. Export a spreadsheet detailing every in
 # Plugin:
 
 # NEW INSTALL:
-1. Extract the complete Sinduriel folder directly into: (c:\\, proton pfx, etc)Documents/The Lord of the Rings Online/Plugins/
+1. Extract the complete Sinduriel folder directly into: (c:\, proton pfx, etc)Documents/The Lord of the Rings Online/Plugins/
 
-2. On Windows(Linux, etc see step 3), double-click Plugins/Sinduriel/SongBook3_LibraryBuilder.hta  (or use Plugins/Sinduriel/Run_SongBook3_LibraryBuilder.cmd if MSHta is not associated).
+2. On Windows(Linux, etc see step 3), double-click Plugins/Sinduriel/SongBook3_Windows_Builder.exe, enter your filepaths if not detected, enter lotro account name IF there is no PluginData folder found for that account.
 
-3. On Linux, macOS, or Windows with Perl installed, you can instead run Plugins/Sinduriel/SongBook3_Scanner.pl . The scanner uses Perl core modules and no Unix-only shell commands. It accepts optional --music and --plugindata paths. See Library_Builder_README.txt for detailed instructions.
+3. On Linux, macOS, or Windows with Perl installed, you can instead run Plugins/Sinduriel/SongBook3_Scanner.pl . The scanner uses Perl core modules and no Unix-only shell commands. It accepts optional --music and --plugindata paths. See User_Manual.pdf for detailed instructions.
 
 4. Both builders scan Music for ABC files and Music/lyrics for mirrored TXT lyric files, save the generated indexes beside the builder in Sinduriel, and copy them to each account's PluginData/<account>/AllServers folder automatically.
 
@@ -46,7 +44,7 @@ Or use the auto-assignment then edit it. Export a spreadsheet detailing every in
 
 - IMPORTANT FOR THIS UPDATE: Run the builder once even if your Music folder has not changed. Both builders now include %%part-name entries in the song index. When a T: title does not identify an instrument, SongBook3 uses %%part-name for the part label and instrument checks. The original T: title is retained for the song title and LOTRO sync/chat matching. If T: already identifies an instrument, it still takes precedence over %%part-name.
 
-- NEW ARTIST METADATA: Both builders now treat the first non-empty C: header in each ABC file as that song's original artist. They save Artist inSongBook3Data.plugindata, and also retain per-track C: credits where present.(ABC traditionally defines C: as composer; SongBook3 uses it as artist by convention for this library.) Run the updated builder and reload SongBook3whenever you edit C: fields. Older indexes still load, but have no artist metadata until regenerated. Songs without C: are left uncredited.
+- NEW ARTIST METADATA: Both builders now treat the first non-empty C: header in each ABC file as that song's original artist. They save Artist inSongBook3Data.plugindata, and also retain per-track C: credits where present.(ABC traditionally defines C: as composer; SongBook3 uses it as artist by convention for this library.) Run the updated builder and reload SongBook3 whenever you edit C: fields. Older indexes still load, but have no artist metadata until regenerated. Songs without C: are left uncredited.
 
 
 # UPDATING FROM ANOTHER SONGBOOK3 VERSION:
@@ -57,7 +55,7 @@ Or use the auto-assignment then edit it. Export a spreadsheet detailing every in
 
 
 # PLUGIN IDENTITY AND DATA:
-The plugin package loads from the Sinduriel.SongBook3 namespace and its assets are stored in Sinduriel/SongBook3. Its LOTRO shell command is /songbook3. The library builder instructions are in Library_Builder_README.txt. Do not use older SongbookFiller.exe or songbook.hta utilities with this plugin; they write the legacy SongbookData format rather than the new SongBook3 indexes, and write the wrong filenames.
+The plugin package loads from the Sinduriel.SongBook3 namespace and its assets are stored in Sinduriel/SongBook3. Its LOTRO shell command is /songbook3. The library builder instructions are in User_Manual.pdf. Do not use older SongbookFiller.exe or songbook.hta utilities and expect them to work with this plugin; they write the legacy SongbookData format rather than the new SongBook3 indexes, and write the wrong filenames.
 
 The following account/character data names are used:
 - SongBook3Data.plugindata
@@ -68,20 +66,20 @@ The following account/character data names are used:
 
 No other plugin's data is loaded, migrated, or overwritten. Other Songbook plugins can remain installed in their own creator folders. Do not remove the SongBook3 data files if you want to retain your current SongBook3 configuration.
 
-# SongBook3 Setlist Planner:
-Install Python3 and python3-odf(or create a venv and pip install odfpy), for spreadsheet export. Move the SongBook_Planner folder to wherever you want it, and either: 
-- copy your SongBook3Data.plugindata and SongBook3Setlists.plugindata to the folder containing the program files, mark run_songbook_planner.sh as executable, then run it.
+# SongBook3 SETLIST PLANNER:
+For Windows and Debian-based Linux: Install Python3(Ms store or Python website for Windows, apt or Python website for Deb) and python3 odf(Windows: open cmd[search cmd in menu], type 'pip install odfpy', for Deb, apt has python3-odf)(or create a venv and pip install odfpy, info in Planner User Manual), for spreadsheet export. Move the SongBook_Planner folder to wherever you want it, and either: 
+- copy your SongBook3Data.plugindata and SongBook3Setlists.plugindata to the folder containing the program files, (for linux, set DebPlannerCopies.sh as executable), then run it using WinPlannerCopies.bat (or DebPlannerCopies.sh).
 
 Or:
 
-- If you want to read your actual live library plugindata and add setlists directly to your live setlist plugindata file, edit songbook3live.sh with your plugindata file paths, then run it. To exit, click the shut down button in the top right corner. If you don't, it will continue running in the background until you manually kill the process or reopen the web page and click shut down.
+- If you want to read your actual live library plugindata and add setlists directly to your live setlist plugindata file, edit (linux: DebPlannerLive.sh) WinPlannerLive.bat with your plugindata file paths, then run it. It should open in your default browser, if not, open http://localhost:8765 in your web browser. To exit, click the shut down button in the top right corner. If you don't, it will continue running in the background until you manually kill the process or reopen the web page and click shut down.
 
 - For Windows users, you'll need to install python, then edit songbook3planner.bat to change ACCOUNTNAME to the actual folder where your plugindata is, then double click songbook3planner.bat. This will run using your live plugindata files, edit the .bat to point to copies if you want to use different files.
 
 A .bak backup (SongBook3Setlists.plugindata.bak) is created every time a setlist is added to the plugindata file, delete the new .plugindata and rename the .bak to SongBook3Setlists.plugindata to restore the previous version if the new one corrupts somehow.
 
 
-# COMMANDS
+# PLUGIN COMMANDS
 - /songbook3 show — show the main window.
 - /songbook3 hide — hide the main window.
 - /songbook3 toggle — toggle the main window.
@@ -89,7 +87,7 @@ A .bak backup (SongBook3Setlists.plugindata.bak) is created every time a setlist
 The floating SongBook3 icon toggles the full workspace, including auxiliary windows. Clicking the timer collapses the auxiliary workspace while leaving the timer and floating icon visible; clicking the timer again or the icon restores the previous window visibility.
 
 
-# HOW TO ACTUALLY USE IT
+# HOW TO ACTUALLY USE SongBook3
 - Solo:
 To play a song, simply load the plugin, either through the Plugin Manager or with:
 
@@ -114,7 +112,7 @@ Documents/Lord of the Rings Online/music/<
 
 It's some work to initially create the structure, but it's worth it to have automatic selection.
 
-# SETTINGS AND CONTROLS
+# PLUGIN SETTINGS AND CONTROLS
 
 Most of the settings are self-explanatory. The Leader Mode checkbox turns on and off the 'Start Sync Play' button. If you're a band member that doesn't want to accidentally start sync play, you can uncheck the box. Count Down shows or hides the timer in the main window. 
 In the Lyrics tab, you can change the prefix(a symbol or series of symbols that is placed in front of each lyric line), set the comment prefix(default is '%', ignores/skips lines beginning with this symbol), choose whether to hide or show blank lines, and set a delay that disables the send button for that amount of time after clicking.
@@ -185,7 +183,7 @@ In the Lyrics tab, you can change the prefix(a symbol or series of symbols that 
 - Next/Previous can be used to navigate lines, or just click the desired line.
 
 
-# CUSTOMIZATION:
+# PLUGIN CUSTOMIZATION:
 You can replace the Timer Window background with any 150x94 pixel image you like, just copy it to 
 Sinduriel/SongBook3/ and rename it 'SongBook3Timer.tga'. rename the original to something like 
 SongBook3Timer.tga.old.
@@ -196,4 +194,7 @@ aliases, instrument names, chat-message patterns, and existing translated labels
 Translation coverage is partial: newer Lyrics, Session, and auxiliary-window labels
 are primarily English. The shell command accepts English actions and the legacy
 German/French action words: anzeigen/verstecken/umschalten and afficher/cacher/basculer.
+
+There is zero localization for the Planner currently.
+
 If you would like to contribute translations, please let me know!
