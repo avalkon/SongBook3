@@ -1,4 +1,4 @@
-# HTA file is known broken, repair/replacement is actively underway, hopefully done by end of day.
+# Both HTA and Planner is known broken on Windows, repair/replacement is actively underway, hopefully done by end of day.
 
 # SongBook3 Installation and Overview
 
