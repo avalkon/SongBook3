@@ -158,6 +158,8 @@ function SettingsWindow:Constructor()
     self.timerMusicModeOnlyCheck = self:CreateCheckBox("cb_timermusicmodeonly", self:NextPos(), Main.Settings.TimerMusicModeOnly,
         function(sender, args) songBook3Window:SetTimerMusicModeOnly(sender:IsChecked()); end, 260, 35);
     self.timerMusicModeOnlyCheck:SetEnabled(self.timerWindowVisibleCheck:IsChecked());
+    self.legacyTimerWindowCheck = self:CreateCheckBox("cb_legacytimerwindow", self:NextPos(), Main.Settings.UseLegacyTimerWindow,
+        function(sender, args) songBook3Window:SetLegacyTimerWindow(sender:IsChecked()); end, 260, 35);
 
 	self.toggleOpacityLabel = Turbine.UI.Label();
 	self.toggleOpacityLabel:SetParent(self.generalPanel);
@@ -738,7 +740,7 @@ function SettingsWindow:Constructor()
         self.genLabel, self.trackCheck, self.searchCheck, self.descCheck,
         self.descFirstCheck, self.showArtistCheck, self.artistAfterTimeCheck,
         self.visibleCheck, self.toggleCheck, self.toggleOpacityLabel,
-        self.timerWindowVisibleCheck, self.timerMusicModeOnlyCheck, self.bandLabel, self.artistSearchCheck,
+        self.timerWindowVisibleCheck, self.timerMusicModeOnlyCheck, self.legacyTimerWindowCheck, self.bandLabel, self.artistSearchCheck,
         self.leaderCheck, self.countdownCheck, self.timerCheck,
         self.readyHighlightCheck, self.readyColumnCheck,
         self.UserChatLabel, self.ManualChetSelectionLabel,

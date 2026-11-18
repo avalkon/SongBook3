@@ -56,7 +56,7 @@ SongBook3Load = Turbine.PluginData.Load;
 SongBook3Save = Turbine.PluginData.Save;
 
 Settings = { WindowPosition = { Left = "300", Top = "20", Width = "700", Height = "700" + ShiftTop }, WindowVisible = "no", WindowOpacity="0.9", DirHeight = "100", TracksHeight = "150", TracksVisible = "yes", ToggleVisible = "yes", ToggleLeft = "10", ToggleTop = "10", ToggleOpacity = "1", SearchVisible = "yes", DescriptionVisible = "no", DescriptionFirst = "no", ShowArtist = "no", ArtistAfterTime = "no", UserChatName = "" , PlayersSyncInfoWindowPosition = { Left = "350", Top = "100", Width = "400", Height = "300" } , 
-Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , TimerMusicModeOnly = "false", UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
+Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , TimerMusicModeOnly = "false", UseLegacyTimerWindow = "false", UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
 HelpWindowDisable = "false", LyricsPrefix = "~", LyricsCommentPrefix = "%",
 LyricsIgnoreBlankLines = "true", LyricsDelay = "0", LyricsDirHeight = "90", LyricsFileHeight = "125",
 LyricsWindowPosition = { Left = "420", Top = "120", Width = "620", Height = "620" } }; -- default values
@@ -197,6 +197,7 @@ function SongBook3Window:Constructor()
     self.bandSyncReports = {};
 	self.TimerWindowVisible = true;
     self.TimerMusicModeOnly = false;
+    self.UseLegacyTimerWindow = false;
     self.timerInMusicMode = false;
 	self.UseRaidChat = false;
 	self.UseFellowshipChat = false;
@@ -373,6 +374,8 @@ function SongBook3Window:Constructor()
  	if not Settings.TimerWindowVisible then Settings.TimerWindowVisible = "true"; end
     if Settings.TimerMusicModeOnly == nil then Settings.TimerMusicModeOnly = "false"; end
     self.TimerMusicModeOnly = Settings.TimerMusicModeOnly == "true";
+    if Settings.UseLegacyTimerWindow == nil then Settings.UseLegacyTimerWindow = "false"; end
+    self:SetLegacyTimerWindow(Settings.UseLegacyTimerWindow == "true");
 	self:ToggleTimerWindow( Settings.TimerWindowVisible == "true" )
 	
 	if not Settings.HelpWindowDisable then Settings.HelpWindowDisable = "false"; end
@@ -655,7 +658,7 @@ function SongBook3Window:Constructor()
 	self.Version:SetForeColor( self.colourMessageTitle );
 	self.Version:SetPosition( 40, 25 );
 	self.Version:SetSize(50, 14);
-	self.Version:SetText("V1.20");
+	self.Version:SetText("V1.25.4");
 	
 	self.minWidth = 461;
 	self.minHeight = 308;
@@ -2582,6 +2585,7 @@ function SongBook3Window:SaveSettings()
 	
 	Settings.TimerWindowVisible = tostring( self.TimerWindowVisible )
     Settings.TimerMusicModeOnly = tostring(self.TimerMusicModeOnly);
+    Settings.UseLegacyTimerWindow = tostring(self.UseLegacyTimerWindow);
 	Settings.HelpWindowDisable = tostring( self.HelpWindowDisable )
 	
 	Settings.UseRaidChat = tostring( self.UseRaidChat )

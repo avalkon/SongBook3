@@ -46,6 +46,7 @@ if (lang == "en") then
 	Strings["cb_windowvis"] = "Window visible on load";
 	Strings["cb_timerwindowvis"] = "Timer Window Visible";
 	Strings["cb_timermusicmodeonly"] = "Only in music mode";
+	Strings["cb_legacytimerwindow"] = "Use Legacy Timer Window";
 	Strings["cb_iconvis"] = "SongBook3 button visible";
 	Strings["cb_instrvis"] = "Instrument slots visible";
 	Strings["ui_btn_opacity"] = "SongBook3 button opacity";
@@ -132,6 +133,7 @@ elseif (lang == "de") then
 	Strings["cb_windowvis"] = "Fenster beim Start anzeigen";
 	Strings["cb_timerwindowvis"] = "Timerfenster anzeigen";
 	Strings["cb_timermusicmodeonly"] = "Nur im Musikmodus";
+	Strings["cb_legacytimerwindow"] = "Altes Timerfenster verwenden";
 	Strings["cb_iconvis"] = "SongBook3-Knopf anzeigen";
 	Strings["cb_instrvis"] = "Instrumentenleiste anzeigen";
 	Strings["ui_btn_opacity"] = "Deckkraft des SongBook3-Knopfs";
@@ -218,6 +220,7 @@ elseif (lang == "fr") then
 	Strings["cb_windowvis"] = "Fen\195\170tre visible au chargement";
 	Strings["cb_timerwindowvis"] = "Afficher la fen\195\170tre du minuteur";
 	Strings["cb_timermusicmodeonly"] = "Seulement en mode musique";
+	Strings["cb_legacytimerwindow"] = "Utiliser l'ancien minuteur";
 	Strings["cb_iconvis"] = "Bouton SongBook3 visible";
 	Strings["cb_instrvis"] = "Instrument slots visible";	
 	Strings["ui_btn_opacity"] = "Opacit\195\169 du bouton SongBook3";

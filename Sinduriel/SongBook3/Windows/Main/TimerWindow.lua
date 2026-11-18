@@ -123,6 +123,14 @@ function MainWindowClass:ToggleTimerWindow(State)
     self:RefreshTimerWindowVisibility();
 end
 
+-- Both images have the same native dimensions; change only the frame.
+function MainWindowClass:SetLegacyTimerWindow(state)
+    self.UseLegacyTimerWindow = state == true;
+    Main.Settings.UseLegacyTimerWindow = tostring(self.UseLegacyTimerWindow);
+    local image = self.UseLegacyTimerWindow and "SongbookTimer.tga" or "SongBook3Timer.tga";
+    Timer_Frame:SetBackground(gDir .. image);
+end
+
 function MainWindowClass:SetTimerMusicModeOnly(state)
     self.TimerMusicModeOnly = state == true;
     Main.Settings.TimerMusicModeOnly = tostring(self.TimerMusicModeOnly);
