@@ -56,7 +56,7 @@ SongBook3Load = Turbine.PluginData.Load;
 SongBook3Save = Turbine.PluginData.Save;
 
 Settings = { WindowPosition = { Left = "300", Top = "20", Width = "700", Height = "700" + ShiftTop }, WindowVisible = "no", WindowOpacity="0.9", DirHeight = "100", TracksHeight = "150", TracksVisible = "yes", ToggleVisible = "yes", ToggleLeft = "10", ToggleTop = "10", ToggleOpacity = "1", SearchVisible = "yes", DescriptionVisible = "no", DescriptionFirst = "no", ShowArtist = "no", ArtistAfterTime = "no", UserChatName = "" , PlayersSyncInfoWindowPosition = { Left = "350", Top = "100", Width = "400", Height = "300" } , 
-Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
+Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , TimerMusicModeOnly = "false", UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
 HelpWindowDisable = "false", LyricsPrefix = "~", LyricsCommentPrefix = "%",
 LyricsIgnoreBlankLines = "true", LyricsDelay = "0", LyricsDirHeight = "90", LyricsFileHeight = "125",
 LyricsWindowPosition = { Left = "420", Top = "120", Width = "620", Height = "620" } }; -- default values
@@ -196,6 +196,8 @@ function SongBook3Window:Constructor()
     -- overwrites aPlayers with only the track title, losing the instrument.
     self.bandSyncReports = {};
 	self.TimerWindowVisible = true;
+    self.TimerMusicModeOnly = false;
+    self.timerInMusicMode = false;
 	self.UseRaidChat = false;
 	self.UseFellowshipChat = false;
 	self.HelpWindowDisable = false;
@@ -369,6 +371,8 @@ function SongBook3Window:Constructor()
  	if not Settings.ReadyColHighlight then Settings.ReadyColHighlight = "true"; end
 	
  	if not Settings.TimerWindowVisible then Settings.TimerWindowVisible = "true"; end
+    if Settings.TimerMusicModeOnly == nil then Settings.TimerMusicModeOnly = "false"; end
+    self.TimerMusicModeOnly = Settings.TimerMusicModeOnly == "true";
 	self:ToggleTimerWindow( Settings.TimerWindowVisible == "true" )
 	
 	if not Settings.HelpWindowDisable then Settings.HelpWindowDisable = "false"; end
@@ -543,7 +547,6 @@ function SongBook3Window:Constructor()
 	local hideUI = false;
 	local wasVisible;
 	local settingsWindowWasVisible;
-	local Timer_WindowWasVisible;
 	local PlayersSyncInfoWindowWasVisible;
     local LyricsWindowWasVisible;
 	self:SetWantsKeyEvents(true);
@@ -577,12 +580,8 @@ function SongBook3Window:Constructor()
 					PlayersSyncInfoWindowWasVisible = false;
 				end
 				
-				if Sinduriel.SongBook3.Windows.Main.Timer_Window:IsVisible() then
-					Timer_WindowWasVisible = true;
-					Sinduriel.SongBook3.Windows.Main.Timer_Window:SetVisible(false);
-				else
-					Timer_WindowWasVisible = false;
-				end
+                self.timerHiddenByHUD = true;
+                self:RefreshTimerWindowVisibility();
                 if self.lyricsWindow and self.lyricsWindow:IsVisible() then
                     LyricsWindowWasVisible = true;
                     self.lyricsWindow:SetVisible(false);
@@ -607,10 +606,11 @@ function SongBook3Window:Constructor()
 					Sinduriel.SongBook3.Windows.Main.PlayersSyncInfoWindow:SetVisible(true);
 					Sinduriel.SongBook3.Windows.Main.PlayersSyncInfoWindow:Activate();
 				end
-				if Timer_WindowWasVisible then
-					Sinduriel.SongBook3.Windows.Main.Timer_Window:SetVisible(true);
-					Sinduriel.SongBook3.Windows.Main.Timer_Window:Activate();
-				end
+                self.timerHiddenByHUD = false;
+                self:RefreshTimerWindowVisibility();
+                if Sinduriel.SongBook3.Windows.Main.Timer_Window:IsVisible() then
+                    Sinduriel.SongBook3.Windows.Main.Timer_Window:Activate();
+                end
                 if LyricsWindowWasVisible and self.lyricsWindow then
                     self.lyricsWindow:SetVisible(true);
                     self.lyricsWindow:Activate();
@@ -624,6 +624,10 @@ function SongBook3Window:Constructor()
 		end
 	end
 	
+    self.KeyUp = function(sender, args)
+        self:ObserveMusicModeAction(args.Action);
+    end
+
 	librarySize = #SongDB.Songs;
 	
 	self:SetPosition( Settings.WindowPosition.Left, Settings.WindowPosition.Top );
@@ -651,7 +655,7 @@ function SongBook3Window:Constructor()
 	self.Version:SetForeColor( self.colourMessageTitle );
 	self.Version:SetPosition( 40, 25 );
 	self.Version:SetSize(50, 14);
-	self.Version:SetText("V1.25.4");
+	self.Version:SetText("V1.20");
 	
 	self.minWidth = 461;
 	self.minHeight = 308;
@@ -833,6 +837,9 @@ function SongBook3Window:Constructor()
 	end
 	self.musicSlot.MouseUp = function(sender,args)
 		self.musicIcon:SetBackground(gDir .. "icn_m_hover.tga");
+        if args.Button == Turbine.UI.MouseButton.Left then
+            self:ObserveMusicModeToggle();
+        end
 	end
 --
 	self.playSlot.MouseEnter = function(sender,args)
@@ -1094,6 +1101,16 @@ function SongBook3Window:Constructor()
 	
 --
 	
+    self.playerEquipment.ItemUnequipped = function(sender, args)
+        if not sender:GetItem(Turbine.Gameplay.Equipment.Instrument) then
+            self:SetObservedMusicMode(false);
+        end
+    end
+    -- Combat exits music mode; do not infer that leaving combat enters it.
+    self.playerInstance.InCombatChanged = function(sender, args)
+        if sender:IsInCombat() then self:SetObservedMusicMode(false); end
+    end
+
 	-- SongBook3 Messages display
 	self.MessageTitle = Turbine.UI.Label();
 	self.MessageTitle:SetParent( self );
@@ -2564,6 +2581,7 @@ function SongBook3Window:SaveSettings()
 	Settings.ReadyColHighlight = tostring( self.bHighlightReadyCol )
 	
 	Settings.TimerWindowVisible = tostring( self.TimerWindowVisible )
+    Settings.TimerMusicModeOnly = tostring(self.TimerMusicModeOnly);
 	Settings.HelpWindowDisable = tostring( self.HelpWindowDisable )
 	
 	Settings.UseRaidChat = tostring( self.UseRaidChat )
@@ -3847,6 +3865,7 @@ end
 function ChatHandler( sender, args )
 	local sMessage = args.Message;
 	if sMessage == nil or songBook3Window == nil then return; end
+    songBook3Window:ObserveMusicModeChat(args);
 	
 	if args.ChatType == Turbine.ChatType.Error then
 		if string.find( sMessage, "You are not in a Raid." ) ~= nil then

@@ -82,23 +82,25 @@ end
 function MainWindowClass:ToggleAllWindows(keepTimerVisible)
     -- The timer and icon can both collapse the auxiliary workspace. They share
     -- one visibility snapshot so either control can restore the same windows.
+    local timerWindow = Main.Timer_Window;
     if self.pluginWindowsCollapsed then
         local previous = self.pluginWindowVisibilityBeforeCollapse or {};
         self.pluginWindowsCollapsed = false;
         self.pluginWindowVisibilityBeforeCollapse = nil;
         for _, state in ipairs(previous) do
-            if state.window then
+            if state.window and state.window ~= timerWindow then
                 state.window:SetVisible(state.visible);
                 if state.visible and state.window.Activate then
                     state.window:Activate();
                 end
             end
         end
+        self.timerHiddenByCollapse = false;
+        self:RefreshTimerWindowVisibility();
         if self:IsVisible() then self:HelpWindow(); end
         return;
     end
 
-    local timerWindow = Sinduriel.SongBook3.Windows.Main.Timer_Window;
     local windows = { self };
     local function addWindow(window)
         if window then windows[#windows + 1] = window; end
@@ -140,7 +142,9 @@ function MainWindowClass:ToggleAllWindows(keepTimerVisible)
 
     self.pluginWindowVisibilityBeforeCollapse = previous;
     self.pluginWindowsCollapsed = true;
+    self.timerHiddenByCollapse = not keepTimerVisible;
     for _, state in ipairs(previous) do
-        state.window:SetVisible(false);
+        if state.window ~= timerWindow then state.window:SetVisible(false); end
     end
+    self:RefreshTimerWindowVisibility();
 end

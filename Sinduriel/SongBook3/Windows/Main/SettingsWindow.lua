@@ -150,6 +150,15 @@ function SettingsWindow:Constructor()
 	self.toggleCheck = self:CreateCheckBox( "cb_iconvis", self:NextPos(20), Main.Settings.ToggleVisible,
 		function(sender, args) self:ChangeToggleVisibility(); end, 260 )
 
+	self.timerWindowVisibleCheck = self:CreateCheckBox("cb_timerwindowvis", self:NextPos(), Main.Settings.TimerWindowVisible,
+        function(sender, args)
+            songBook3Window:ToggleTimerWindow(sender:IsChecked());
+            self.timerMusicModeOnlyCheck:SetEnabled(sender:IsChecked());
+        end, 260);
+    self.timerMusicModeOnlyCheck = self:CreateCheckBox("cb_timermusicmodeonly", self:NextPos(), Main.Settings.TimerMusicModeOnly,
+        function(sender, args) songBook3Window:SetTimerMusicModeOnly(sender:IsChecked()); end, 260, 35);
+    self.timerMusicModeOnlyCheck:SetEnabled(self.timerWindowVisibleCheck:IsChecked());
+
 	self.toggleOpacityLabel = Turbine.UI.Label();
 	self.toggleOpacityLabel:SetParent(self.generalPanel);
 	self.toggleOpacityLabel:SetPosition(20,self:NextPos(25));
@@ -180,9 +189,6 @@ function SettingsWindow:Constructor()
 	self.toggleOpacityInd:SetWidth(30);
 	self.toggleOpacityInd:SetForeColor(Turbine.UI.Color(1,0.77,0.64,0.22));
 	self.toggleOpacityInd:SetText(tostring(Main.Settings.ToggleOpacity));
-
-	self.timerWindowVisibleCheck = self:CreateCheckBox( "cb_timerwindowvis", self:NextPos(25), Main.Settings.TimerWindowVisible,
-		function(sender, args) songBook3Window:ToggleTimerWindow( sender:IsChecked( ) ); end, 260 )
 
 	-- Band settings -----------------------------
 	self.bandLabel = Turbine.UI.Label();
@@ -732,7 +738,7 @@ function SettingsWindow:Constructor()
         self.genLabel, self.trackCheck, self.searchCheck, self.descCheck,
         self.descFirstCheck, self.showArtistCheck, self.artistAfterTimeCheck,
         self.visibleCheck, self.toggleCheck, self.toggleOpacityLabel,
-        self.timerWindowVisibleCheck, self.bandLabel, self.artistSearchCheck,
+        self.timerWindowVisibleCheck, self.timerMusicModeOnlyCheck, self.bandLabel, self.artistSearchCheck,
         self.leaderCheck, self.countdownCheck, self.timerCheck,
         self.readyHighlightCheck, self.readyColumnCheck,
         self.UserChatLabel, self.ManualChetSelectionLabel,

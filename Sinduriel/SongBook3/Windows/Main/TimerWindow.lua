@@ -109,7 +109,86 @@ Click_Label.MouseMove = function(sender,args)
 	end
 end
 
+-- Keep the user's preference separate from the overlay's effective visibility.
+function MainWindowClass:RefreshTimerWindowVisibility()
+    local visible = self.TimerWindowVisible == true
+        and (not self.TimerMusicModeOnly or self.timerInMusicMode == true)
+        and not self.timerHiddenByHUD and not self.timerHiddenByCollapse;
+    Timer_Window:SetVisible(visible);
+end
+
 function MainWindowClass:ToggleTimerWindow(State)
-    self.TimerWindowVisible = State;
-    Timer_Window:SetVisible(self.TimerWindowVisible);
+    self.TimerWindowVisible = State == true;
+    Main.Settings.TimerWindowVisible = tostring(self.TimerWindowVisible);
+    self:RefreshTimerWindowVisibility();
+end
+
+function MainWindowClass:SetTimerMusicModeOnly(state)
+    self.TimerMusicModeOnly = state == true;
+    Main.Settings.TimerMusicModeOnly = tostring(self.TimerMusicModeOnly);
+    self:RefreshTimerWindowVisibility();
+end
+
+-- LOTRO does not document a readable music-mode flag. Track observed
+-- transitions for this session only; never use this estimate for playback.
+function MainWindowClass:SetObservedMusicMode(state)
+    self.timerInMusicMode = state == true;
+    if self.TimerMusicModeOnly then self:RefreshTimerWindowVisibility(); end
+end
+
+function MainWindowClass:ObserveMusicModeToggle()
+    if self.timerInMusicMode then
+        self:SetObservedMusicMode(false);
+        return;
+    end
+    -- A music-mode request without an equipped instrument cannot succeed.
+    local player = Turbine.Gameplay.LocalPlayer:GetInstance();
+    local equipment = player and player:GetEquipment();
+    if not equipment or not equipment:GetItem(Turbine.Gameplay.Equipment.Instrument) then return; end
+    if player.IsInCombat and player:IsInCombat() then return; end
+    self:SetObservedMusicMode(true);
+end
+
+function MainWindowClass:ObserveMusicModeAction(action)
+    -- Community-documented LOTRO action IDs: toggle and music note actions.
+    -- KeyUp avoids repeated toggles if the key is held down.
+    if action == 268435683 then
+        self:ObserveMusicModeToggle();
+    elseif type(action) == "number" and action >= 268435646 and action <= 268435682 then
+        self:SetObservedMusicMode(true);
+    end
+end
+
+function MainWindowClass:ObserveMusicModeChat(args)
+    if args.ChatType ~= Turbine.ChatType.Standard and args.ChatType ~= Turbine.ChatType.Error then return; end
+    local msg = args.Message;
+    if type(msg) ~= "string" then return; end
+    local text = string.lower(msg);
+    if args.ChatType == Turbine.ChatType.Standard then
+        -- Existing localized self-only readiness/play notifications are
+        -- positive evidence even when music mode was entered outside SongBook3.
+        local begin = Strings["chat_playBeginSelf"];
+        local ready = Strings["chat_playSelfReadyMsg"];
+        if (begin and begin ~= "" and string.find(msg, begin, 1, true) == 1)
+            or (ready and ready ~= "" and string.find(msg, "^" .. ready)) then
+            self:SetObservedMusicMode(true);
+            return;
+        end
+        -- Some clients may expose explicit mode notifications. Match only
+        -- self-directed messages, never player chat or another player's sync.
+        if string.match(text, "^you enter music mode[%.!]?$" ) or
+           string.match(text, "^you have entered music mode[%.!]?$" ) or
+           string.match(text, "^you are now in music mode[%.!]?$" ) then
+            self:SetObservedMusicMode(true);
+        elseif string.match(text, "^you leave music mode[%.!]?$" ) or
+               string.match(text, "^you have left music mode[%.!]?$" ) or
+               string.match(text, "^you are no longer in music mode[%.!]?$" ) or
+               string.match(text, "^you exit music mode[%.!]?$" ) then
+            self:SetObservedMusicMode(false);
+        end
+    elseif string.find(text, "not in music mode", 1, true) or
+           string.find(text, "cannot enter music mode", 1, true) or
+           string.find(text, "can't enter music mode", 1, true) then
+        self:SetObservedMusicMode(false);
+    end
 end
