@@ -116,33 +116,7 @@ function SongBook3Window:Constructor()
 	self.bArtistSearch = false -- show/hide artist search
 	self.bLeaderMode = true -- enables sync start shortcut, uses party object (seems to work for FS leader)
 	self.aFilteredIndices = { } -- Array for filtered indices, k = display index; v = SongDB index
-    -- Cached lowercase text and directory/path lookups: constructed once per library load.
-    self.searchIndex = { };
-    self.songsByDirectory = { };
-    self.songByPath = { };
-    self.songByHash = { };
-    self.songsByFilename = { };
-    for i, song in ipairs(SongDB.Songs or {}) do
-        local trackNames = { };
-        for _, track in ipairs(song.Tracks or {}) do
-            trackNames[#trackNames + 1] = track.Name or "";
-            -- Make instruments from %%part-name searchable as well as visible.
-            if track.PartName then trackNames[#trackNames + 1] = track.PartName; end
-        end
-        self.searchIndex[i] = string.lower(
-            (song.Filepath or "") .. " " .. (song.Filename or "") .. " " .. table.concat(trackNames, " "));
-        local directory = song.Filepath or "/";
-        if not self.songsByDirectory[directory] then self.songsByDirectory[directory] = { }; end
-        table.insert(self.songsByDirectory[directory], i);
-        local key = SongBook3SongPath(song);
-        self.songByPath[key] = i;
-        local hash = SongBook3PathHash(key);
-        if not self.songByHash[hash] then self.songByHash[hash] = { }; end
-        table.insert(self.songByHash[hash], i);
-        local filename = string.lower(song.Filename or "");
-        if not self.songsByFilename[filename] then self.songsByFilename[filename] = { }; end
-        table.insert(self.songsByFilename[filename], i);
-    end
+    self:BuildSongLibraryIndexes();
     -- Keep collections as relative paths, not database row numbers (rebuild safe).
     self.setlistData = SongBook3Load(Turbine.DataScope.Account, "SongBook3Setlists") or
         { names = { "Main Setlist" }, lists = { ["Main Setlist"] = { } }, active = "Main Setlist" };
@@ -1413,27 +1387,7 @@ function SongBook3Window:Constructor()
 		end
 		self.separator1.heading:SetText( Strings["ui_songs"] .. " (" .. found .. ")" );
 		
-		-- action for selecting a dir
-		self.dirlistBox.SelectedIndexChanged = function( sender, args )
-			self:SelectDir(sender:GetSelectedIndex());
-		end
-		-- action for selecting a song
-		self.songlistBox.SelectedIndexChanged = function( sender, args )
-			self:SelectSong(sender:GetSelectedIndex());
-		end
-		-- action for selecting a track
-		self.tracklistBox.SelectedIndexChanged = function( sender, args )
-			-- Turbine.Shell.WriteLine( "<rgb=#00FF00>SIC</rgb>");
-			self:SelectTrack(sender:GetSelectedIndex());
-		end
-		
-		self.tracklistBox.MouseClick = function( sender, args )
-			if args.Button == Turbine.UI.MouseButton.Right then
-				self:RealignTracknames( )
-			end
-		end
-		self.sepSongsTracks.MouseClick = self.tracklistBox.MouseClick
-		
+
 	else
 		-- show message when library is empty or database format has changed
 		self.separator1:SetVisible( false );
@@ -1446,6 +1400,28 @@ function SongBook3Window:Constructor()
 		self.emptyLabel:SetText(Strings["err_nosongs"]);
 	end
 	
+	-- action for selecting a dir
+	self.dirlistBox.SelectedIndexChanged = function( sender, args )
+		if not self.refreshingLibrary then self:SelectDir(sender:GetSelectedIndex()); end
+	end
+	-- action for selecting a song
+	self.songlistBox.SelectedIndexChanged = function( sender, args )
+		if not self.refreshingLibrary then self:SelectSong(sender:GetSelectedIndex()); end
+	end
+	-- action for selecting a track
+	self.tracklistBox.SelectedIndexChanged = function( sender, args )
+		-- Turbine.Shell.WriteLine( "<rgb=#00FF00>SIC</rgb>");
+		if not self.refreshingLibrary then self:SelectTrack(sender:GetSelectedIndex()); end
+	end
+	
+	self.tracklistBox.MouseClick = function( sender, args )
+		if args.Button == Turbine.UI.MouseButton.Right then
+			self:RealignTracknames( )
+		end
+	end
+	self.sepSongsTracks.MouseClick = self.tracklistBox.MouseClick
+	
+
 	-- window resize control
 	self.resizeCtrl = Turbine.UI.Control();
 	self.resizeCtrl:SetParent(self);
@@ -1562,6 +1538,22 @@ function SongBook3Window:Constructor()
 		end	
 	end
 	
+    -- Refresh the saved indexes; this is a Lua UI button, not a chat alias.
+    self.libraryRefreshBtn = Turbine.UI.Lotro.Button();
+    self.libraryRefreshBtn:SetParent(self);
+    self.libraryRefreshBtn:SetPosition(self:GetWidth() - 451, self:GetHeight() - 30);
+    self.libraryRefreshBtn:SetSize(42, 20);
+    self.libraryRefreshBtn:SetZOrder(110);
+    self.libraryRefreshBtn:SetText("Lib");
+    self.libraryRefreshBtn:SetVisible(true);
+    self.libraryRefreshBtn.MouseEnter = function()
+        self.tipLabel:SetText("Refresh Library (Music and Lyrics)");
+    end
+    self.libraryRefreshBtn.MouseLeave = function() self.tipLabel:SetText(""); end
+    self.libraryRefreshBtn.MouseClick = function(sender, args)
+        if args.Button == Turbine.UI.MouseButton.Left then self:RefreshLibrary(); end
+    end
+
 	-- Settings button	
 	self.settingsBtn = Turbine.UI.Lotro.Button();
 	self.settingsBtn:SetParent( self );
@@ -1713,7 +1705,7 @@ function SongBook3Window:StopTimer( )
 	Sinduriel.SongBook3.Windows.Main.Song_Label:SetText( "" );
 end
 
--- Keep all four footer controls aligned in a compact right-anchored group.
+-- Keep all five footer controls aligned in a compact right-anchored group.
 function SongBook3Window:LayoutMainFooterButtons( )
     local width, height = self:GetSize();
     local bottom = height - 30;
@@ -1721,6 +1713,7 @@ function SongBook3Window:LayoutMainFooterButtons( )
     self.setlistBtn:SetSize(75, 20);
     self.lyricsBtn:SetSize(75, 20);
     self.readyCheckBtn:SetSize(100, 20);
+    self.libraryRefreshBtn:SetPosition(width - 451, bottom);
     self.settingsBtn:SetPosition(width - 401, bottom);
     self.setlistBtn:SetPosition(width - 303, bottom);
     self.lyricsBtn:SetPosition(width - 220, bottom);
@@ -1761,8 +1754,242 @@ function SongBook3Window:ResizeAll( )
 end -- SongBook3Window:ResizeAll( )
 
 
+function SongBook3Window:BuildSongLibraryIndexes()
+    -- Cached lowercase text and directory/path lookups: rebuilt for every library load.
+    self.searchIndex = { };
+    self.songsByDirectory = { };
+    self.songByPath = { };
+    self.songByHash = { };
+    self.songsByFilename = { };
+    for i, song in ipairs(SongDB.Songs or {}) do
+        local trackNames = { };
+        for _, track in ipairs(song.Tracks or {}) do
+            trackNames[#trackNames + 1] = track.Name or "";
+            -- Make instruments from %%part-name searchable as well as visible.
+            if track.PartName then trackNames[#trackNames + 1] = track.PartName; end
+        end
+        self.searchIndex[i] = string.lower(
+            (song.Filepath or "") .. " " .. (song.Filename or "") .. " " .. table.concat(trackNames, " "));
+        local directory = song.Filepath or "/";
+        if not self.songsByDirectory[directory] then self.songsByDirectory[directory] = { }; end
+        table.insert(self.songsByDirectory[directory], i);
+        local key = SongBook3SongPath(song);
+        self.songByPath[key] = i;
+        local hash = SongBook3PathHash(key);
+        if not self.songByHash[hash] then self.songByHash[hash] = { }; end
+        table.insert(self.songByHash[hash], i);
+        local filename = string.lower(song.Filename or "");
+        if not self.songsByFilename[filename] then self.songsByFilename[filename] = { }; end
+        table.insert(self.songsByFilename[filename], i);
+    end
+end
+
+-- Only publish an index after it has been read and validated. Never replace
+-- the live music library with nil when a builder is writing or a load fails.
+local function SongBook3ValidateLibrary(db, field)
+    if type(db) ~= "table" or type(db[field]) ~= "table" or
+       (db.Directories ~= nil and type(db.Directories) ~= "table") then
+        return nil, "index missing or invalid";
+    end
+    local valid, err = pcall(function()
+        for _, row in ipairs(db[field]) do
+            assert(type(row) == "table" and type(row.Filepath) == "string" and
+                type(row.Filename) == "string", "invalid library entry");
+            if field == "Songs" then
+                assert(not row.Realnames and type(row.Tracks) == "table" and
+                    #row.Tracks > 0, "invalid or obsolete song entry");
+                assert(row.Artist == nil or type(row.Artist) == "string", "invalid artist");
+                for _, track in ipairs(row.Tracks) do
+                    assert(type(track) == "table" and type(track.Name) == "string" and
+                        (type(track.Id) == "number" or type(track.Id) == "string") and
+                        (track.PartName == nil or type(track.PartName) == "string"), "invalid track");
+                end
+            else
+                assert(type(row.Lines) == "table", "invalid lyric lines");
+            end
+        end
+        SongBook3EnsureDirectories(db);
+        if field == "Songs" then table.sort(db.Songs, sortby_Name); end
+    end);
+    if not valid then return nil, tostring(err); end
+    return db;
+end
+
+function SongBook3Window:ClearLibrarySelection()
+    selectedSongIndex = 0;
+    selectedSongIndexListBox = 0;
+    selectedSong = "";
+    selectedTrack = 1;
+    self.iCurrentSetup = nil;
+    self.aSetupTracksIndices = {};
+    self.aSetupListIndices = {};
+    self.tracklistBox:ClearItems();
+    Sinduriel.SongBook3.Windows.Main.SyncInfolistbox:ClearItems();
+    self:ListSetups(0);
+    self.songTitle:SetText("");
+    self.trackNumber:SetText("");
+    self.sepSongsTracks.heading:SetText(Strings["ui_parts"] .. " (0)");
+    self.tracksMsg:SetVisible(false);
+    self.currentSyncInfoAlias = nil;
+    self.currentSongAnnouncementAlias = nil;
+    self.syncSlotSendsInfo = false;
+    self.syncInfoSendPending = false;
+    local function Empty() return Turbine.UI.Lotro.Shortcut(Turbine.UI.Lotro.ShortcutType.Undefined, ""); end
+    self.playSlotShortcut = Empty(); self.playSlot:SetShortcut(self.playSlotShortcut);
+    self.playSyncShortcut = Empty(); self.syncSlotShortcut = self.playSyncShortcut;
+    self.syncSlot:SetShortcut(self.syncSlotShortcut);
+    self.sendSyncInfoSlotShortcut = Empty(); self.sendSyncInfoSlot:SetShortcut(self.sendSyncInfoSlotShortcut);
+    self.shareSlot:SetShortcut(Empty());
+    self.syncStartSlotShortcut = Empty(); self.syncStartSlot:SetShortcut(self.syncStartSlotShortcut);
+    self.syncIcon:SetBackground(gDir .. "icn_s.tga");
+end
+
+-- Runtime loads return asynchronously. Accept the actual data-first callback
+-- as well as a scope/key/data signature and immediate returns during startup.
+local function SongBook3ReadLibrary(name, field, complete)
+    local done = false;
+    local function Finish(db, err)
+        if done then return; end
+        done = true;
+        if err then complete(nil, err); return; end
+        local valid, reason = SongBook3ValidateLibrary(db, field);
+        complete(valid, reason);
+    end
+    local ok, result = pcall(SongBook3Load, Turbine.DataScope.Account, name,
+        function(first, second, third)
+            if second == name then Finish(third); else Finish(first); end
+        end);
+    if not ok then Finish(nil, tostring(result));
+    elseif type(result) == "table" then Finish(result); end
+end
+
+function SongBook3Window:RefreshLibrary()
+    if self.libraryRefreshPending or self.refreshingLibrary then return; end
+    if self.lyricsSendUpdateState == 1 then
+        Turbine.Shell.WriteLine("SongBook3: Finish sending the current lyric line, then refresh again.");
+        return;
+    end
+    self.libraryRefreshPending = true;
+    self.libraryRefreshBtn:SetText("...");
+    Turbine.Shell.WriteLine("SongBook3: Reading updated music and lyrics indexes...");
+    local function Finished()
+        self.libraryRefreshPending = false;
+        self.libraryRefreshBtn:SetText("Lib");
+    end
+    SongBook3ReadLibrary("SongBook3Data", "Songs", function(music, musicError)
+        if not music then
+            Finished();
+            Turbine.Shell.WriteLine("SongBook3: Library refresh failed; existing library retained (" .. tostring(musicError) .. ").");
+            return;
+        end
+        SongBook3ReadLibrary("SongBook3Lyrics", "Lyrics", function(lyrics, lyricsError)
+            local ok, err = pcall(self.ApplyRefreshedLibrary, self, music, lyrics, lyricsError);
+            Finished();
+            if not ok then
+                self.refreshingLibrary = false;
+                Turbine.Shell.WriteLine("SongBook3: Refresh error: " .. tostring(err) .. ". Reload the plugin if necessary.");
+            end
+        end);
+    end);
+end
+
+function SongBook3Window:ApplyRefreshedLibrary(music, lyrics, lyricsError)
+    if self.lyricsSendUpdateState == 1 then
+        Turbine.Shell.WriteLine("SongBook3: Refresh deferred while sending a lyric line. Click Lib again.");
+        return;
+    end
+    local oldSong = selectedSongIndexListBox > 0 and SongDB.Songs[selectedSongIndex];
+    local oldPath = oldSong and SongBook3SongPath(oldSong);
+    local oldTrack = oldSong and oldSong.Tracks[self:SelectedTrackIndex()];
+    local oldTrackId = oldTrack and tostring(oldTrack.Id);
+    local oldDir = selectedDir;
+    local wasSearching = self.bShowingSongSearchResults;
+    local oldLyric = self.selectedLyricEntry;
+    local oldLyricLine = self.selectedLyricLine;
+    local oldLine = self.currentLyricLines and self.currentLyricLines[oldLyricLine or 0];
+    self.refreshingLibrary = true;
+    SongDB = music;
+    librarySize = #SongDB.Songs;
+    self:BuildSongLibraryIndexes();
+    -- Readiness caches contain positional indices, which may now refer
+    -- to different songs. Retain the roster but require fresh reports.
+    self:ClearPlayerStates();
+    self.Players_Data = {};
+    for playerName in pairs(self.aPlayers or {}) do self.Players_Data[playerName] = 0; end
+    self.bandSyncReports = {};
+    self.aCurrentSongReady = {};
+    self.aReadyTracks = "";
+    syncedSongIndex = -1; syncedTrack = -1; PlayerSynced = 0;
+    OtherPlayer_SyncedSong_Index = 0; OtherPlayer_SyncedSong_IndexListBox = 0;
+    OtherPlayer_SyncedSong_Filepath = ""; OtherPlayer_SyncedSong_Filename = "";
+    SelectedMatchedSong_Index = 0; SelectedMatchedSong_IndexListBox = 0;
+    Multiple_songs_match_Synced = 0; YouDontHaveTheSameSong_Flag = 0;
+    self.syncMessageTitle:SetText(""); self.syncMessageTitle:SetVisible(false);
+    Sinduriel.SongBook3.Windows.Main.MatchedSongsWindow:SetVisible(false);
+    self:ClearLibrarySelection();
+    local dirExists = false;
+    for _, dir in ipairs(SongDB.Directories) do if dir == oldDir then dirExists = true; break; end end
+    self:SelectDir(nil, dirExists and oldDir or "/", true);
+    if wasSearching then self:SearchSongs(true); end
+    local chosen = nil;
+    local newIndex = oldPath and self.songByPath[oldPath];
+    for row, index in ipairs(self.aFilteredIndices) do
+        if index == newIndex then chosen = row; break; end
+    end
+    if not chosen and self.songlistBox:GetItemCount() > 0 then chosen = 1; end
+    if chosen then
+        self.songlistBox:SetSelectedIndex(chosen);
+        self:SelectSong(chosen);
+        if newIndex == selectedSongIndex and oldTrackId then
+            for i, track in ipairs(SongDB.Songs[selectedSongIndex].Tracks) do
+                if tostring(track.Id) == oldTrackId then
+                    local row = self.iCurrentSetup and self.aSetupListIndices[i] or i;
+                    if not self.iCurrentSetup or self.aSetupListIndices[i] then
+                        self:SelectTrack(self.bShowReadyChars and row * 2 or row);
+                    end
+                    break;
+                end
+            end
+        end
+    end
+    self.separator1.heading:SetText(Strings["ui_songs"] .. " (" .. self.songlistBox:GetItemCount() .. ")");
+    self.separator1:SetVisible(true);
+    self:ShowTrackListbox(Settings.TracksVisible == "yes");
+    if self.emptyLabel then self.emptyLabel:SetVisible(false); end
+    self:SetPlayerColours();
+    self:RefreshSetlistUI();
+    self:RefreshReadyCheck();
+    if lyrics then
+        SongBook3LyricsDB = lyrics;
+        self:BuildLyricsLibrary();
+        if self.lyricDirList then
+            local entry = oldLyric and self.lyricByKey[oldLyric.Key];
+            if entry then
+                self:SelectLyricsEntry(entry);
+                local line = self.currentLyricLines[oldLyricLine or 0];
+                if line and line.Selectable and oldLine and line.Text == oldLine.Text then
+                    self.selectedLyricLine = oldLyricLine;
+                    self.lyricLineList:SetSelectedIndex(oldLyricLine);
+                    self:UpdateLyricsLineHighlight(); self:UpdateLyricsSendShortcut();
+                end
+            else
+                local exists = false;
+                for _, directory in ipairs(self.lyricDirectories) do
+                    if directory == self.selectedLyricDir then exists = true; break; end
+                end
+                if not exists then self.selectedLyricDir = "/"; end
+                self:PopulateLyricsDirectory();
+            end
+        end
+    end
+    self.refreshingLibrary = false;
+    local message = "SongBook3: Library refreshed - " .. librarySize .. " songs, " .. #self.lyricEntries .. " lyrics. Sync readiness cleared; sync again before starting.";
+    if not lyrics then message = message .. " Lyrics index unchanged (" .. tostring(lyricsError) .. ")."; end
+    Turbine.Shell.WriteLine(message);
+end
+
 -- action for selecting a directory
-function SongBook3Window:SelectDir( iDir , Directory )
+function SongBook3Window:SelectDir( iDir , Directory, deferSelection )
 	if not Directory then 
 		local selectedItem = self:SetListboxColours( self.dirlistBox ) --, iDir )
 		if not selectedItem then return; end
@@ -1822,7 +2049,7 @@ function SongBook3Window:SelectDir( iDir , Directory )
 		self:UpdateSongs();
 	else
 		self:LoadSongs();
-		self:InitSonglist();
+		if not deferSelection then self:InitSonglist(); end
 	end
 end -- SelectDir
 
@@ -1886,7 +2113,7 @@ end
 
 -- action for selecting a song
 function SongBook3Window:SelectSong( iSong )
-	if( iSong < 1 or iSong > self.songlistBox:GetItemCount( ) ) then
+	if( not iSong or iSong < 1 or iSong > self.songlistBox:GetItemCount( ) ) then
 		return;
 	end
 	local track = 1;
@@ -2014,7 +2241,7 @@ end
 
 
 -- action to search songs
-function SongBook3Window:SearchSongs()
+function SongBook3Window:SearchSongs(deferSelection)
     self.bShowingSongSearchResults = true;
     self.songlistBox:ClearItems();
     self.aFilteredIndices = { };
@@ -2034,10 +2261,8 @@ function SongBook3Window:SearchSongs()
             self.aFilteredIndices[nFound] = i;
         end
     end
-    if nFound > 0 then self:SelectSong(1); else
-        selectedSong = "";
-        selectedSongIndexListBox = 0;
-        self:InitSonglist();
+    if not deferSelection then
+        if nFound > 0 then self:SelectSong(1); else self:InitSonglist(); end
     end
     self.separator1.heading:SetText(Strings["ui_songs"] .. " (" .. nFound .. ")");
 end
@@ -2527,7 +2752,7 @@ end
 
 function SongBook3Window:ExpandCmd(cmdId)
     local selTrack = self:SelectedTrackIndex();
-    if librarySize == 0 then return; end
+    if librarySize == 0 then return ""; end
     local commandEntry = Settings.Commands[cmdId];
     local song = SongDB.Songs[selectedSongIndex];
     if not commandEntry or not song then return ""; end
@@ -2653,15 +2878,15 @@ function SongBook3Window:InitSonglist( )
 	local nSongs = self.songlistBox:GetItemCount( );
 	if nSongs > 0 then
 		self:SelectSong( 1 );
-	else
-        selectedSong = "";
-        selectedSongIndexListBox = 0;
-		self.tracklistBox:ClearItems( );
-		Sinduriel.SongBook3.Windows.Main.SyncInfolistbox:ClearItems( );
-		--self:ClearSongState( )
-		--Turbine.Chat.Received = nil; -- No tracks listed, so deactivate player ready indicator
-		self.sepSongsTracks.heading:SetText( Strings["ui_parts"] .. " (0)" );
-	end
+    else
+        if self.listboxSetups then self:ClearLibrarySelection(); else
+            selectedSong = "";
+            selectedSongIndexListBox = 0;
+            self.tracklistBox:ClearItems();
+            Sinduriel.SongBook3.Windows.Main.SyncInfolistbox:ClearItems();
+            self.sepSongsTracks.heading:SetText(Strings["ui_parts"] .. " (0)");
+        end
+    end
 	self.separator1.heading:SetText( Strings["ui_songs"] .. " (" .. nSongs .. ")" );
 end -- UpdateSongs
 
@@ -3068,7 +3293,7 @@ function SongBook3Window:CreateSetupsListbox( )
 	self.listboxSetups:SetVisible( self.bShowSetups );
 	self.listboxSetups.SelectedIndexChanged =
 		function( sender, args )
-			self:ListTracksForSetup( sender:GetSelectedIndex( ) );
+			if not self.refreshingLibrary then self:ListTracksForSetup(sender:GetSelectedIndex()); end
 		end
 end
 
@@ -3504,9 +3729,12 @@ end
 
 -- action for changing track selection (trackid is listbox index)
 function SongBook3Window:SelectTrack( trackid )
-	if self.bShowReadyChars then trackid = math.floor( (trackid+1) / 2 ); end
-	selectedTrack = trackid;
-	local iTrack = self:SelectedTrackIndex( trackid );
+    if not trackid or trackid < 1 then return; end
+    if self.bShowReadyChars then trackid = math.floor( (trackid+1) / 2 ); end
+    local iTrack = self:SelectedTrackIndex(trackid);
+    local song = SongDB.Songs[selectedSongIndex];
+    if not song or not song.Tracks[iTrack] then return; end
+    selectedTrack = trackid;
 
 	self.trackNumber:SetText(SongDB.Songs[selectedSongIndex].Tracks[iTrack].Id);
 	self.songTitle:SetText(SongDB.Songs[selectedSongIndex].Tracks[iTrack].Name);
@@ -3531,7 +3759,7 @@ function SongBook3Window:SelectTrack( trackid )
 	
 	if YouDontHaveTheSameSong_Flag == 0 then
 		
-		if OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename == SongDB.Songs[selectedSongIndex].Filepath .. selectedSong then
+		if SongDB.Songs[selectedSongIndex] and OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename == SongDB.Songs[selectedSongIndex].Filepath .. selectedSong then
 			self.syncMessageTitle:SetVisible(false);
 		else
 			if OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename ~= "" then
@@ -3611,6 +3839,9 @@ end
 -- action for setting focus on the track list
 function SongBook3Window:PlayerSyncInfo()
 	if not self.sendSyncInfoSlot then return 0; end
+    if not SongDB.Songs[selectedSongIndex] or not SongDB.Songs[selectedSongIndex].Tracks[selectedTrack] then
+        return self:UpdatePlayerTitle() or 0;
+    end
 	
 	local trackcount = #SongDB.Songs[selectedSongIndex].Tracks;
 	local Track_Name = SongDB.Songs[selectedSongIndex].Tracks[selectedTrack].Name; 
@@ -4914,7 +5145,7 @@ function SongBook3Window:Update_syncMessage (SongIndex, PlayerName, TrackName)
 			self.syncMessageTitle:SetForeColor( self.colour_syncMessageTitle_OnlySynced );
 		end
 		
-		if OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename == SongDB.Songs[selectedSongIndex].Filepath .. selectedSong then
+		if SongDB.Songs[selectedSongIndex] and OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename == SongDB.Songs[selectedSongIndex].Filepath .. selectedSong then
 			self.syncMessageTitle:SetVisible(false);
 		else
 			if OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename ~= "" then
@@ -4946,7 +5177,7 @@ function SongBook3Window:Update_syncMessage (SongIndex, PlayerName, TrackName)
 			self.syncMessageTitle:SetForeColor( self.colour_syncMessageTitle_OnlySynced );
 		end
 		
-		if OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename == SongDB.Songs[selectedSongIndex].Filepath .. selectedSong then
+		if SongDB.Songs[selectedSongIndex] and OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename == SongDB.Songs[selectedSongIndex].Filepath .. selectedSong then
 			self.syncMessageTitle:SetVisible(false);
 		else
 			if OtherPlayer_SyncedSong_Filepath .. OtherPlayer_SyncedSong_Filename ~= "" then
