@@ -226,6 +226,24 @@ function SettingsWindow:Constructor()
 	self.readyColumnCheck = self:CreateCheckBox( "cb_rdyCol", self.yPos, Main.Settings.ReadyColState,
 		function(sender, args) self:ToggleReadyCol( sender:IsChecked( ) ); end, 145 )
 	if Main.Settings.ReadyColState ~= "true" then self.readyHighlightCheck:SetVisible( false ); end
+
+    -- Keep Sync Check open when its own Start Song quickslot is clicked.
+    -- Off preserves the historical behavior. Save persists the preference.
+    self.keepSyncCheckOpenCheck = self:CreateCheckBox(
+        "cb_keepsynccheckopen", self:NextPos(), Main.Settings.KeepSyncCheckOpenOnPlaystart,
+        function(sender, args)
+            Main.Settings.KeepSyncCheckOpenOnPlaystart = sender:IsChecked() and "true" or "false";
+        end, 280, 20);
+    -- Opt-in: empty song parts count as preflight conflicts, instead of
+    -- being listed as optional. The Sync Check Start Song bypass remains.
+    self.syncCheckUnfilledCheck = self:CreateCheckBox(
+        "cb_syncunfilledconflict", self:NextPos(), Main.Settings.SyncCheckUnfilledAsConflict,
+        function(sender, args)
+            Main.Settings.SyncCheckUnfilledAsConflict = sender:IsChecked() and "true" or "false";
+            if songBook3Window.readyCheckWindow and songBook3Window.readyCheckWindow:IsVisible() then
+                songBook3Window:RefreshReadyCheck();
+            end
+        end, 280, 20);
 -- /Band settings ----------------------------
 
 -- earlier edition settings --------------------------
@@ -740,7 +758,7 @@ function SettingsWindow:Constructor()
         self.genLabel, self.trackCheck, self.searchCheck, self.descCheck,
         self.descFirstCheck, self.showArtistCheck, self.artistAfterTimeCheck,
         self.visibleCheck, self.toggleCheck, self.toggleOpacityLabel,
-        self.timerWindowVisibleCheck, self.timerMusicModeOnlyCheck, self.legacyTimerWindowCheck, self.bandLabel, self.artistSearchCheck,
+        self.timerWindowVisibleCheck, self.timerMusicModeOnlyCheck, self.legacyTimerWindowCheck, self.bandLabel, self.artistSearchCheck, self.keepSyncCheckOpenCheck, self.syncCheckUnfilledCheck,
         self.leaderCheck, self.countdownCheck, self.timerCheck,
         self.readyHighlightCheck, self.readyColumnCheck,
         self.UserChatLabel, self.ManualChetSelectionLabel,

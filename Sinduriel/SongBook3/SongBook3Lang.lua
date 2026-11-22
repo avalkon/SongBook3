@@ -66,6 +66,8 @@ if (lang == "en") then
 	Strings["cb_timerDown"] = "Count down";
 	Strings["cb_rdyCol"] = "Sync column";
 	Strings["cb_rdyColHL"] = "Highlighting";
+	Strings["cb_keepsynccheckopen"] = "Keep manual Sync Check open";
+	Strings["cb_syncunfilledconflict"] = "Count unfilled parts as conflicts";
 	Strings["instr"] = " required?";
 	Strings["players"] = "Players";
 	aInstrumentsLoc = { "bagpipe", "clarinet", "cowbell", "drum", "flute", "harp", "horn", "lute", "pibgorn", "theorbo"  }
@@ -153,6 +155,8 @@ elseif (lang == "de") then
 	Strings["cb_timerDown"] = "R\195\188ckw\195\164rts";
 	Strings["cb_rdyCol"] = "Sync-Spalte";
 	Strings["cb_rdyColHL"] = "Sync-Hervorhebung";
+	Strings["cb_keepsynccheckopen"] = "Manuellen Sync Check offen lassen";
+	Strings["cb_syncunfilledconflict"] = "Unbesetzte Stimmen als Konflikt werten";
 	Strings["instr"] = " ben\195\182tigt?";
 	Strings["players"] = "Spieler";
 	aInstrumentsLoc = { "dudelsack", "klarinette", "glocke", "trommel", "fl\195\182te", "harfe", "horn", "laute", "pibgorn", "theorbe"  }
@@ -240,6 +244,8 @@ elseif (lang == "fr") then
 	Strings["cb_timerDown"] = "D\195\169compter";
 	Strings["cb_rdyCol"] = "Colonne Synch"; -- Note: This needs to be rather short (two checkboxes on the same line)
 	Strings["cb_rdyColHL"] = "Surbrillance";
+	Strings["cb_keepsynccheckopen"] = "Garder Sync Check manuel ouvert";
+	Strings["cb_syncunfilledconflict"] = "Compter les parties non attribuees comme conflits";
 	Strings["instr"] = " recquis?";
 	Strings["players"] = "Musiciens";
 	aInstrumentsLoc = { "cornemuse", "clarinette", "cloche de vache", "tambour", "fl\195\187t", "harpe", "cor", "luth", "pibgorn", "th\195\169orbe"  }

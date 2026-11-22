@@ -56,7 +56,7 @@ SongBook3Load = Turbine.PluginData.Load;
 SongBook3Save = Turbine.PluginData.Save;
 
 Settings = { WindowPosition = { Left = "300", Top = "20", Width = "700", Height = "700" + ShiftTop }, WindowVisible = "no", WindowOpacity="0.9", DirHeight = "100", TracksHeight = "150", TracksVisible = "yes", ToggleVisible = "yes", ToggleLeft = "10", ToggleTop = "10", ToggleOpacity = "1", SearchVisible = "yes", DescriptionVisible = "no", DescriptionFirst = "no", ShowArtist = "no", ArtistAfterTime = "no", UserChatName = "" , PlayersSyncInfoWindowPosition = { Left = "350", Top = "100", Width = "400", Height = "300" } , 
-Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , TimerMusicModeOnly = "false", UseLegacyTimerWindow = "false", UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
+Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , TimerMusicModeOnly = "false", UseLegacyTimerWindow = "false", KeepSyncCheckOpenOnPlaystart = "false", SyncCheckUnfilledAsConflict = "false", UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
 HelpWindowDisable = "false", LyricsPrefix = "~", LyricsCommentPrefix = "%",
 LyricsIgnoreBlankLines = "true", LyricsDelay = "0", LyricsDirHeight = "90", LyricsFileHeight = "125",
 LyricsWindowPosition = { Left = "420", Top = "120", Width = "620", Height = "620" } }; -- default values
@@ -344,6 +344,10 @@ function SongBook3Window:Constructor()
 	if not Settings.TimerCountdown then Settings.TimerCountdown = "true"; end		
  	if not Settings.ReadyColState then Settings.ReadyColState = "true"; end
  	if not Settings.ReadyColHighlight then Settings.ReadyColHighlight = "true"; end
+    -- Older saved preferences should keep the original auto-close behavior.
+    if Settings.KeepSyncCheckOpenOnPlaystart == nil then Settings.KeepSyncCheckOpenOnPlaystart = "false"; end
+    -- Older settings continue to treat empty/unassigned parts as optional.
+    if Settings.SyncCheckUnfilledAsConflict == nil then Settings.SyncCheckUnfilledAsConflict = "false"; end
 	
  	if not Settings.TimerWindowVisible then Settings.TimerWindowVisible = "true"; end
     if Settings.TimerMusicModeOnly == nil then Settings.TimerMusicModeOnly = "false"; end
@@ -632,7 +636,7 @@ function SongBook3Window:Constructor()
 	self.Version:SetForeColor( self.colourMessageTitle );
 	self.Version:SetPosition( 40, 25 );
 	self.Version:SetSize(50, 14);
-	self.Version:SetText("V1.25.4");
+	self.Version:SetText("V1.25.5");
 	
 	self.minWidth = 461;
 	self.minHeight = 308;
@@ -1059,6 +1063,7 @@ function SongBook3Window:Constructor()
 	self:UpdatePlayerTitle();
 	
 	self.playerEquipment.ItemEquipped = function(sender, args)
+		if type(conductorBridgeOnEquipmentChanged) == "function" then conductorBridgeOnEquipmentChanged(); end
 		local insIndex = self:PlayerSyncInfo();
 		if insIndex == 0 then return; end
 		local trackListEmpty = self.tracklistBox == nil or self.tracklistBox:GetItemCount( ) < 1
@@ -1079,6 +1084,7 @@ function SongBook3Window:Constructor()
 --
 	
     self.playerEquipment.ItemUnequipped = function(sender, args)
+        if type(conductorBridgeOnEquipmentChanged) == "function" then conductorBridgeOnEquipmentChanged(); end
         if not sender:GetItem(Turbine.Gameplay.Equipment.Instrument) then
             self:SetObservedMusicMode(false);
         end
@@ -1920,6 +1926,7 @@ function SongBook3Window:ApplyRefreshedLibrary(music, lyrics, lyricsError)
     self.aCurrentSongReady = {};
     self.aReadyTracks = "";
     syncedSongIndex = -1; syncedTrack = -1; PlayerSynced = 0;
+    if type(conductorBridgeOnSyncStateChanged) == "function" then conductorBridgeOnSyncStateChanged(); end;
     OtherPlayer_SyncedSong_Index = 0; OtherPlayer_SyncedSong_IndexListBox = 0;
     OtherPlayer_SyncedSong_Filepath = ""; OtherPlayer_SyncedSong_Filename = "";
     SelectedMatchedSong_Index = 0; SelectedMatchedSong_IndexListBox = 0;
@@ -3771,6 +3778,7 @@ function SongBook3Window:SelectTrack( trackid )
 	end
 	
 	self:SetTrackColours( selectedTrack );
+    if type(conductorBridgeOnSelectionChanged) == "function" then conductorBridgeOnSelectionChanged(); end
 end
 
 -- action for setting focus on the track list
@@ -3928,7 +3936,11 @@ function SongBook3Window:PlayerSyncInfo()
 
 	if hasInstrumentInfo and CorrectSongAndTrack == 1 and PlayerSynced == 1 then
 	
-        local baseMessage = Chatchannel .. " <rgb=#211f1d>@SBL|" .. self.Player_Name ..
+        -- Use the already computed instrument match to make the detailed
+        -- @SBL report readable in fellowship/raid chat.  Only the RGB markup
+        -- changes: the wire fields, channel, and message length stay the same.
+        local syncInfoChatColor = CorrectInstrument == 1 and "#00FF00" or "#FF0000";
+        local baseMessage = Chatchannel .. " <rgb=" .. syncInfoChatColor .. ">@SBL|" .. self.Player_Name ..
             "|" .. SongDB.Songs[selectedSongIndex].Filename .. "|" .. Track_Name ..
             "|" .. PlayerSynced .. "|" .. CorrectSongAndTrack .. "|" .. trackcount ..
             "|" .. selectedSongIndexListBox .. "|" .. selectedSongIndex .. "|" ..
@@ -4390,6 +4402,7 @@ function ChatHandler( sender, args )
         -- playback-start signals. Record the current library/setlist song even
         -- when LOTRO omits a part title from the message.
         songBook3Window:SongStarted(true, TrackName);
+        if type(conductorBridgeOnPlaybackStarted) == "function" then conductorBridgeOnPlaybackStarted(); end;
         return;
     end
 
@@ -4438,6 +4451,7 @@ function ChatHandler( sender, args )
 			PlayerSynced = 1;
 			songBook3Window:PlayerSyncInfo();
             songBook3Window:ArmSyncInfoOnPlaySlot();
+            if type(conductorBridgeOnLocalReady) == "function" then conductorBridgeOnLocalReady(sTrackName); end;
 		else
 			if songBook3Window.aPlayers[ sPlayerName ] ~= nil then
 				

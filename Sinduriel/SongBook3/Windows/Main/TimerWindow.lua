@@ -140,7 +140,9 @@ end
 -- LOTRO does not document a readable music-mode flag. Track observed
 -- transitions for this session only; never use this estimate for playback.
 function MainWindowClass:SetObservedMusicMode(state)
+    local changed = self.timerInMusicMode ~= (state == true);
     self.timerInMusicMode = state == true;
+    if type(conductorBridgeOnMusicModeChanged) == "function" then conductorBridgeOnMusicModeChanged(); end;
     if self.TimerMusicModeOnly then self:RefreshTimerWindowVisibility(); end
 end
 

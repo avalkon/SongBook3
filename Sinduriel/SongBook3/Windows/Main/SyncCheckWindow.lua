@@ -17,6 +17,8 @@ function MainWindowClass:CreateSyncCheckWindow()
     self.readyCheckWindow:SetSize(Helpers.SongBook3SavedWindowSize("SyncCheck", 505, 376, 505, 320));
     self.readyCheckWindow:SetPosition(300, 145);
     self.readyCheckWindow:SetVisible(false);
+    -- Distinguish manual opening from the conflict-driven Sync Check prompt.
+    self.readyCheckOpenedManually = false;
     self.readyCheckWindow:SetZOrder(190);
     self.readySummary = Turbine.UI.Label();
     self.readySummary:SetParent(self.readyCheckWindow);
@@ -60,7 +62,14 @@ function MainWindowClass:CreateSyncCheckWindow()
     end;
     self.readyStartSlot.MouseClick = function(sender, args)
         if args.Button == Turbine.UI.MouseButton.Left then
-            self.readyCheckWindow:SetVisible(false);
+            -- The LOTRO quickslot executes /playstart regardless of visibility.
+            -- Only leave it open when the user explicitly opened Sync Check.
+            local keepOpen = Main.Settings.KeepSyncCheckOpenOnPlaystart == "true"
+                and self.readyCheckOpenedManually;
+            if not keepOpen then
+                self.readyCheckOpenedManually = false;
+                self.readyCheckWindow:SetVisible(false);
+            end
         end
     end;
     self.readyStartButton = Turbine.UI.Control();
@@ -95,12 +104,29 @@ function MainWindowClass:CreateSyncCheckWindow()
     self.readyCancel:SetPosition(332, 338);
     self.readyCancel:SetSize(146, 26);
     self.readyCancel:SetText("Cancel");
-    self.readyCancel.MouseClick = function() self.readyCheckWindow:SetVisible(false); end;
+    self.readyCancel.MouseClick = function()
+        self.readyCheckOpenedManually = false;
+        self.readyCheckWindow:SetVisible(false);
+    end;
     self.readyResize = Helpers.SongBook3AttachResizeGrip(self.readyCheckWindow, 505, 320,
         function() self:LayoutSyncCheckWindow(); end,
         function() self:SaveSettings(); end);
     self:LayoutSyncCheckWindow();
 
+    -- The ready state can change when another musician syncs, reports an
+    -- instrument, changes parts, or leaves. LOTRO does not expose one event
+    -- covering all these cases, so poll the existing state while this window
+    -- is visible. The renderer below only changes rows when their contents
+    -- change, avoiding flicker and scroll resets on idle updates.
+    self.readyCheckWindow.Update = function(sender, args)
+        if not sender:IsVisible() then return; end
+        local now = Turbine.Engine.GetGameTime();
+        local last = self.readyAutoRefreshAt;
+        if last ~= nil and now >= last and now - last < 0.5 then return; end
+        self.readyAutoRefreshAt = now;
+        self:RefreshReadyCheck();
+    end;
+    self.readyCheckWindow:SetWantsUpdates(true);
 end
 
 function MainWindowClass:LayoutSyncCheckWindow()
@@ -135,33 +161,29 @@ function MainWindowClass:LayoutSyncCheckWindow()
 end
 function MainWindowClass:RefreshReadyCheck()
     if not self.readyIssues then return; end
-    self.readyIssues:ClearItems();
-    local song = Main.SongDB.Songs[Main.selectedSongIndex];
+    local song = Main.SongDB and Main.SongDB.Songs and
+        Main.SongDB.Songs[Main.selectedSongIndex];
     if not song or not song.Tracks then
-        self.readySummary:SetText("Select A Song First.");
+        if self.readyRenderedSummary ~= "Select A Song First." then
+            self.readyIssues:ClearItems();
+            self.readySummary:SetText("Select A Song First.");
+            self.readyRenderedRows = {};
+            self.readyRenderedSummary = "Select A Song First.";
+        end
         self.readyStartSlot:SetVisible(false);
         self.readyStartButton:SetVisible(false);
         self.readyStartText:SetVisible(false);
+        self.readyCheckConflictCount = 1;
         return 1;
     end
     self.readyStartSlot:SetVisible(true);
     self.readyStartButton:SetVisible(true);
     self.readyStartText:SetVisible(true);
     local ready, optional, conflicts = 0, 0, 0;
+    local flagUnfilled = Main.Settings.SyncCheckUnfilledAsConflict == "true";
+    local rows = {};
     local function AddLine(text, state)
-        local item = Turbine.UI.Label();
-        item:SetSize(SongBook3SyncLineWidth(text, self.readyIssues:GetWidth()), 22);
-        item:SetMultiline(false);
-        item:SetText(text);
-        item:SetTextAlignment(Turbine.UI.ContentAlignment.MiddleLeft);
-        if state == "conflict" then
-            item:SetForeColor(self.colourWrongInstrument);
-        elseif state == "ready" then
-            item:SetForeColor(self.colourDefaultHighlighted);
-        else
-            item:SetForeColor(self.colourDefault);
-        end
-        self.readyIssues:AddItem(item);
+        rows[#rows + 1] = { text = text, state = state };
     end
     for i, track in ipairs(song.Tracks) do
         if not self.iCurrentSetup or self.aSetupListIndices[i] then
@@ -196,7 +218,14 @@ function MainWindowClass:RefreshReadyCheck()
                     " - Synced"), "ready");
             else
                 optional = optional + 1;
-                AddLine(name .. " - Unfilled", "optional");
+                -- Optional by default. When requested, an unfilled part is
+                -- reported like other conflicts to the existing preflight.
+                if flagUnfilled then
+                    conflicts = conflicts + 1;
+                    AddLine(name .. " - Unfilled", "conflict");
+                else
+                    AddLine(name .. " - Unfilled", "optional");
+                end
             end
 
             -- Merge the old Tracks Sync Info view into this one.
@@ -249,10 +278,58 @@ function MainWindowClass:RefreshReadyCheck()
         conflicts = conflicts + #wrongSongs;
         AddLine("Different Song: " .. table.concat(wrongSongs, ", "), "conflict");
     end
-    self.readySummary:SetText(ready .. " Synced, " .. optional .. " Unfilled, " ..
+    local summary = ready .. " Synced, " .. optional .. " Unfilled, " ..
         conflicts .. " Conflicts.\n" ..
         (conflicts > 0 and "Review conflicts or choose Start Song anyway." or
+        (flagUnfilled and "All parts filled; ready to start." or
         "Unfilled parts do not prevent a synchronized start."));
+
+    -- Updating every half-second must not clear the list each time. Keep the
+    -- existing labels and scroll position unless the number of rows changes;
+    -- if only a readiness status changes, update that particular label.
+    local previous = self.readyRenderedRows or {};
+    local rebuild = #previous ~= #rows or
+        self.readyIssues:GetItemCount() ~= #rows;
+    local scrollValue;
+    if rebuild then
+        if self.readyScroll and self.readyScroll.GetValue then
+            local ok, value = pcall(function() return self.readyScroll:GetValue(); end);
+            if ok then scrollValue = value; end
+        end
+        self.readyIssues:ClearItems();
+    end
+    for i, row in ipairs(rows) do
+        if rebuild or not previous[i] or
+            previous[i].text ~= row.text or previous[i].state ~= row.state then
+            local item;
+            if rebuild then
+                item = Turbine.UI.Label();
+                item:SetMultiline(false);
+                item:SetTextAlignment(Turbine.UI.ContentAlignment.MiddleLeft);
+            else
+                item = self.readyIssues:GetItem(i);
+            end
+            item:SetSize(SongBook3SyncLineWidth(row.text,
+                self.readyIssues:GetWidth()), 22);
+            item:SetText(row.text);
+            if row.state == "conflict" then
+                item:SetForeColor(self.colourWrongInstrument);
+            elseif row.state == "ready" then
+                item:SetForeColor(self.colourDefaultHighlighted);
+            else
+                item:SetForeColor(self.colourDefault);
+            end
+            if rebuild then self.readyIssues:AddItem(item); end
+        end
+    end
+    if rebuild and scrollValue ~= nil and self.readyScroll.SetValue then
+        pcall(function() self.readyScroll:SetValue(scrollValue); end);
+    end
+    self.readyRenderedRows = rows;
+    if self.readyRenderedSummary ~= summary then
+        self.readySummary:SetText(summary);
+        self.readyRenderedSummary = summary;
+    end
     self.readyCheckConflictCount = conflicts;
     return conflicts;
 end
@@ -271,6 +348,17 @@ function MainWindowClass:UpdateSyncStartPreflight()
 end
 
 function MainWindowClass:ShowReadyCheck(startRequested)
+    -- The button opens Sync Check manually (false); the main /playstart
+    -- preflight opens it automatically when there are conflicts (true).
+    -- If a manual window is already visible, an automatic prompt must not
+    -- change its origin. A freshly automatic window is never kept open.
+    if startRequested then
+        if not self.readyCheckWindow:IsVisible() then
+            self.readyCheckOpenedManually = false;
+        end
+    else
+        self.readyCheckOpenedManually = true;
+    end
     self:RefreshReadyCheck();
     self.readyCheckWindow:SetText("Sync Check");
     self.readyCheckWindow:SetVisible(true);

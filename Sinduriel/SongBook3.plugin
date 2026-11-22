@@ -3,7 +3,7 @@
 	<Information>
 		<Name>SongBook3</Name>
 		<Author>Sinduriel</Author>
-		<Version>1.25.4</Version>
+		<Version>1.25.5</Version>
 		<Image>Sinduriel/SongBook3/SongBook3_icon.jpg</Image>
 	</Information>
 	<Package>Sinduriel.SongBook3.Main</Package>
