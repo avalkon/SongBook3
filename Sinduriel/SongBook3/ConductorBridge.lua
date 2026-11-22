@@ -1,4 +1,4 @@
--- ConductorBridge 0.4.0, for Sinduriel SongBook3 v1.25.5
+-- ConductorBridge 0.10.0, for Sinduriel SongBook3 v1.25.5
 -- Import AFTER SongBook3Window is constructed. Writes only through Turbine.PluginData.
 import "Turbine.Gameplay";
 
@@ -183,7 +183,16 @@ local function Select(path, partId)
         row = VisibleRow();
     end
     if not row then error("Song hidden by SongBook filters: " .. path); end
+    -- SongBook's SelectSong updates internal selection but does not select the
+    -- underlying ListBox row. SetSelectedIndex is what makes it highlighted.
+    -- The ListBox callback may also call SelectSong; this is harmless here.
+    if w.songlistBox and type(w.songlistBox.SetSelectedIndex) == "function" then
+        w.songlistBox:SetSelectedIndex(row);
+    end
     w:SelectSong(row);
+    if w.songlistBox and type(w.SetListboxColours) == "function" then
+        w:SetListboxColours(w.songlistBox);
+    end
     w:SelectSetup(nil);
     local displayIndex = w.bShowReadyChars and trackIndex * 2 or trackIndex;
     w:SelectTrack(displayIndex);
@@ -219,6 +228,6 @@ function conductorBridgeCommand:GetHelp()
 end
 function conductorBridgeCommand:GetShortHelp() return "Conductor bridge status and SongBook selection"; end
 Turbine.Shell.AddCommand("conductor", conductorBridgeCommand);
-Print("Bridge 0.4.0 LOADED. Try /conductor diagnose");
+Print("Bridge 0.10.0");
 local ok, err = pcall(function() Report(true,false); end);
 if not ok then Print("initial report ERROR: " .. tostring(err)); end

@@ -54,4 +54,4 @@ Turbine.Shell.AddCommand( "songbook3", songBook3Command );
 Turbine.Shell.WriteLine("SongBook3 v1.25.5");
 
 -- Conductor 0.4.0 bridge: load after SongBook3 constructs its window.
--- import "Sinduriel.SongBook3.ConductorBridge";
+import "Sinduriel.SongBook3.ConductorBridge";
