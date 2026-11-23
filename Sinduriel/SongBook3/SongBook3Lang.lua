@@ -68,6 +68,8 @@ if (lang == "en") then
 	Strings["cb_rdyColHL"] = "Highlighting";
 	Strings["cb_keepsynccheckopen"] = "Keep manual Sync Check open";
 	Strings["cb_syncunfilledconflict"] = "Count unfilled parts as conflicts";
+	Strings["cb_disableplayingroup"] = "Disable /play in fellowship";
+	Strings["tt_play_disabled"] = "Solo Play disabled while grouped";
 	Strings["instr"] = " required?";
 	Strings["players"] = "Players";
 	aInstrumentsLoc = { "bagpipe", "clarinet", "cowbell", "drum", "flute", "harp", "horn", "lute", "pibgorn", "theorbo"  }
@@ -157,6 +159,8 @@ elseif (lang == "de") then
 	Strings["cb_rdyColHL"] = "Sync-Hervorhebung";
 	Strings["cb_keepsynccheckopen"] = "Manuellen Sync Check offen lassen";
 	Strings["cb_syncunfilledconflict"] = "Unbesetzte Stimmen als Konflikt werten";
+	Strings["cb_disableplayingroup"] = "Solo-Spielen in Gruppe/Raid sperren";
+	Strings["tt_play_disabled"] = "Solo-Spielen in Gruppe deaktiviert";
 	Strings["instr"] = " ben\195\182tigt?";
 	Strings["players"] = "Spieler";
 	aInstrumentsLoc = { "dudelsack", "klarinette", "glocke", "trommel", "fl\195\182te", "harfe", "horn", "laute", "pibgorn", "theorbe"  }
@@ -246,6 +250,8 @@ elseif (lang == "fr") then
 	Strings["cb_rdyColHL"] = "Surbrillance";
 	Strings["cb_keepsynccheckopen"] = "Garder Sync Check manuel ouvert";
 	Strings["cb_syncunfilledconflict"] = "Compter les parties non attribuees comme conflits";
+	Strings["cb_disableplayingroup"] = "Desactiver Jouer solo en groupe/raid";
+	Strings["tt_play_disabled"] = "Lecture solo desactivee en groupe";
 	Strings["instr"] = " recquis?";
 	Strings["players"] = "Musiciens";
 	aInstrumentsLoc = { "cornemuse", "clarinette", "cloche de vache", "tambour", "fl\195\187t", "harpe", "cor", "luth", "pibgorn", "th\195\169orbe"  }

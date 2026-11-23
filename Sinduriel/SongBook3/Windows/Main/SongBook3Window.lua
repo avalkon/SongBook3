@@ -56,7 +56,7 @@ SongBook3Load = Turbine.PluginData.Load;
 SongBook3Save = Turbine.PluginData.Save;
 
 Settings = { WindowPosition = { Left = "300", Top = "20", Width = "700", Height = "700" + ShiftTop }, WindowVisible = "no", WindowOpacity="0.9", DirHeight = "100", TracksHeight = "150", TracksVisible = "yes", ToggleVisible = "yes", ToggleLeft = "10", ToggleTop = "10", ToggleOpacity = "1", SearchVisible = "yes", DescriptionVisible = "no", DescriptionFirst = "no", ShowArtist = "no", ArtistAfterTime = "no", UserChatName = "" , PlayersSyncInfoWindowPosition = { Left = "350", Top = "100", Width = "400", Height = "300" } , 
-Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , TimerMusicModeOnly = "false", UseLegacyTimerWindow = "false", KeepSyncCheckOpenOnPlaystart = "false", SyncCheckUnfilledAsConflict = "false", UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
+Timer_WindowPosition = { Left = "50", Top = "1" } , TimerWindowVisible = "true" , TimerMusicModeOnly = "false", UseLegacyTimerWindow = "false", KeepSyncCheckOpenOnPlaystart = "true", SyncCheckUnfilledAsConflict = "false", DisableNormalPlayInGroup = "false", UseRaidChat = "false", UseFellowshipChat = "false", AutoPickOnSongChange = "true", AutoPickOnInsChange = "true", hideMatchedSongsPopup = "false",
 HelpWindowDisable = "false", LyricsPrefix = "~", LyricsCommentPrefix = "%",
 LyricsIgnoreBlankLines = "true", LyricsDelay = "0", LyricsDirHeight = "90", LyricsFileHeight = "125",
 LyricsWindowPosition = { Left = "420", Top = "120", Width = "620", Height = "620" } }; -- default values
@@ -348,6 +348,8 @@ function SongBook3Window:Constructor()
     if Settings.KeepSyncCheckOpenOnPlaystart == nil then Settings.KeepSyncCheckOpenOnPlaystart = "false"; end
     -- Older settings continue to treat empty/unassigned parts as optional.
     if Settings.SyncCheckUnfilledAsConflict == nil then Settings.SyncCheckUnfilledAsConflict = "false"; end
+    -- On existing accounts, absence of this option must not disable solo Play.
+    if Settings.DisableNormalPlayInGroup == nil then Settings.DisableNormalPlayInGroup = "false"; end
 	
  	if not Settings.TimerWindowVisible then Settings.TimerWindowVisible = "true"; end
     if Settings.TimerMusicModeOnly == nil then Settings.TimerMusicModeOnly = "false"; end
@@ -712,9 +714,8 @@ function SongBook3Window:Constructor()
 	self.playSlot = self:CreateMainShortcut(60);
 	self.playSlot.DragDrop =
 	function( sender, args )
-		if( self.playSlotShortcut ) then
-			self.playSlot:SetShortcut( self.playSlotShortcut ); -- restore shortcut
-		end
+        -- Never let a dragged shortcut bypass the group-play guard.
+        self:ApplyNormalPlayShortcut(true);
 	end
 	
 	-- Ready check button
@@ -824,9 +825,13 @@ function SongBook3Window:Constructor()
 	end
 --
 	self.playSlot.MouseEnter = function(sender,args)
-		self.playIcon:SetBackground(gDir .. "icn_p_hover.tga");
-		self.tipLabel:SetText(Strings["tt_play"]);
-	end
+        -- Refresh immediately, including after fellowship/raid changes.
+        self:ApplyNormalPlayShortcut();
+        if not self.normalPlayDisabled then
+            self.playIcon:SetBackground(gDir .. "icn_p_hover.tga");
+        end
+        self.tipLabel:SetText(self.normalPlayDisabled and Strings["tt_play_disabled"] or Strings["tt_play"]);
+    end
 	self.playSlot.MouseLeave = function(sender,args)
 		self.playIcon:SetBackground(gDir .. "icn_p.tga");
 		self.tipLabel:SetText("");
@@ -835,8 +840,8 @@ function SongBook3Window:Constructor()
 		self.playIcon:SetBackground(gDir .. "icn_p_down.tga");
 	end
 	self.playSlot.MouseUp = function(sender,args)
-		self.playIcon:SetBackground(gDir .. "icn_p_hover.tga");
-	end
+        self.playIcon:SetBackground(gDir .. (self.normalPlayDisabled and "icn_p.tga" or "icn_p_hover.tga"));
+    end
 --
 	self.readySlot.MouseEnter = function(sender,args)
 		self.readyIcon:SetBackground(gDir .. "icn_r_hover.tga");
@@ -1602,6 +1607,7 @@ function SongBook3Window:Constructor()
 		end
 	end
 	
+    self:CreateNormalPlayWatcher();
 	self:CreateTimerUI( )
 	self:CreateArtistSearchUI();
 	self:CreatePartyListbox();
@@ -1841,7 +1847,7 @@ function SongBook3Window:ClearLibrarySelection()
     self.syncSlotSendsInfo = false;
     self.syncInfoSendPending = false;
     local function Empty() return Turbine.UI.Lotro.Shortcut(Turbine.UI.Lotro.ShortcutType.Undefined, ""); end
-    self.playSlotShortcut = Empty(); self.playSlot:SetShortcut(self.playSlotShortcut);
+    self.playSlotShortcut = Empty(); self:ApplyNormalPlayShortcut(true);
     self.playSyncShortcut = Empty(); self.syncSlotShortcut = self.playSyncShortcut;
     self.syncSlot:SetShortcut(self.syncSlotShortcut);
     self.sendSyncInfoSlotShortcut = Empty(); self.sendSyncInfoSlot:SetShortcut(self.sendSyncInfoSlotShortcut);
@@ -3524,6 +3530,58 @@ function SongBook3Window:CreateSeparatorArrows(parent)
 	return arrows;
 end
 
+-- Prevent accidental unsynchronized Play from inside a fellowship or raid.
+-- GetParty() indicates group membership even when a raid contains only two
+-- musicians in different subgroups; the member count must not be used here.
+function SongBook3Window:IsInFellowshipOrRaid()
+    local player = self.playerInstance or Turbine.Gameplay.LocalPlayer:GetInstance();
+    return player ~= nil and player:GetParty() ~= nil;
+end
+
+function SongBook3Window:ApplyNormalPlayShortcut(force)
+    if not self.playSlot then return; end
+    local disabled = Settings.DisableNormalPlayInGroup == "true" and self:IsInFellowshipOrRaid();
+    if not force and self.normalPlayDisabled == disabled then return; end
+    self.normalPlayDisabled = disabled;
+    if disabled then
+        -- A disabled-looking icon alone is not enough: LOTRO Quickslots
+        -- can execute their stored alias regardless of Lua mouse handlers.
+        self.playSlot:SetShortcut(Turbine.UI.Lotro.Shortcut(
+            Turbine.UI.Lotro.ShortcutType.Undefined, ""));
+    else
+        self.playSlot:SetShortcut(self.playSlotShortcut or Turbine.UI.Lotro.Shortcut(
+            Turbine.UI.Lotro.ShortcutType.Undefined, ""));
+    end
+    if self.playIcon then self.playIcon:SetOpacity(disabled and 0.4 or 1); end
+end
+
+function SongBook3Window:SetDisableNormalPlayInGroup(disabled)
+    Settings.DisableNormalPlayInGroup = disabled and "true" or "false";
+    self:ApplyNormalPlayShortcut(true);
+    if self.normalPlayWatcher then
+        self.normalPlayWatcher:SetWantsUpdates(disabled);
+    end
+end
+
+function SongBook3Window:CreateNormalPlayWatcher()
+    -- This control has its own update handler, so the timer's self.Update and
+    -- self:SetWantsUpdates() lifecycle are not changed.
+    self.normalPlayWatcher = Turbine.UI.Control();
+    self.normalPlayWatcher:SetParent(self);
+    self.normalPlayWatcher:SetSize(1, 1);
+    self.normalPlayWatcher:SetMouseVisible(false);
+    self.nextNormalPlayCheck = 0;
+    self.normalPlayWatcher.Update = function()
+        local now = Turbine.Engine.GetLocalTime();
+        if now >= self.nextNormalPlayCheck then
+            self.nextNormalPlayCheck = now + 0.5;
+            self:ApplyNormalPlayShortcut();
+        end
+    end;
+    self.normalPlayWatcher:SetWantsUpdates(Settings.DisableNormalPlayInGroup == "true");
+    self:ApplyNormalPlayShortcut(true);
+end
+
 function SongBook3Window:CreateMainShortcut(left)
 	local slot = Turbine.UI.Lotro.Quickslot();
 	slot:SetParent(self);
@@ -3747,8 +3805,8 @@ function SongBook3Window:SelectTrack( trackid )
 	self.songTitle:SetText(SongDB.Songs[selectedSongIndex].Tracks[iTrack].Name);
 
 	self.playSlotShortcut = Turbine.UI.Lotro.Shortcut( Turbine.UI.Lotro.ShortcutType.Alias, Strings["cmd_play"] .. " \"" .. SongDB.Songs[selectedSongIndex].Filepath .. selectedSong .. "\" " .. SongDB.Songs[selectedSongIndex].Tracks[iTrack].Id);
-	self.playSlot:SetShortcut( self.playSlotShortcut );
-	self.playSlot:SetVisible( true );
+    self:ApplyNormalPlayShortcut(true);
+    self.playSlot:SetVisible( true );
 
 	self.playSyncShortcut = Turbine.UI.Lotro.Shortcut( Turbine.UI.Lotro.ShortcutType.Alias, Strings["cmd_play"] .. " \"" .. SongDB.Songs[selectedSongIndex].Filepath .. selectedSong .. "\" " .. SongDB.Songs[selectedSongIndex].Tracks[iTrack].Id .. " " .. Strings["cmd_sync"]);
     self.syncSlotSendsInfo = false;

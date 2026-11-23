@@ -381,8 +381,11 @@ function MainWindowClass:LayoutLyricsWindow()
     local footerTop = height - 57;
     local frameHeight = footerTop - frameTop - 28;
     local bodyTop = frameTop + 13;
-    -- Keep the 13px top inset and a 7px bottom inset, matching the other windows.
-    local bodyHeight = frameHeight - 20;
+    -- Keep the lyrics viewport above the horizontal scrollbar, which is
+    -- positioned within the grey bottom strip of lyricsFrame.
+    local hScrollHeight = 13; -- Reserve the full grey footer strip.
+    local hScrollBarHeight = 10; -- Make the scrollbar itself slimmer.
+    local bodyHeight = frameHeight - 13 - hScrollHeight;
     self.lyricsFrame:SetPosition(12, frameTop);
     self.lyricsFrame:SetSize(width - 23, frameHeight);
     self.lyricsBody:SetPosition(18, bodyTop);
@@ -401,9 +404,13 @@ function MainWindowClass:LayoutLyricsWindow()
     self.lyricsDivider2:SetPosition(0, lineTop - 13);
     self.lyricsDivider2:SetSize(bodyWidth, 13);
     self.lyricLineList:SetPosition(0, lineTop);
+    -- The lyrics list ends where the bottom grey frame strip begins.
+    -- Place the horizontal scrollbar on that strip, rather than in the text viewport.
     self.lyricLineList:SetSize(listWidth, math.max(30, bodyHeight - lineTop));
-    self.lyricLineHScroll:SetPosition(0, bodyHeight - 13);
-    self.lyricLineHScroll:SetSize(listWidth, 13);
+    -- Center the shorter scrollbar within the grey strip without moving the lyric viewport.
+    self.lyricLineHScroll:SetPosition(6, frameHeight - hScrollHeight +
+        math.floor((hScrollHeight - hScrollBarHeight) / 2));
+    self.lyricLineHScroll:SetSize(listWidth, hScrollBarHeight);
     self.lyricsFolderHeading:SetSize(130, 13);
     self.lyricsFileHeading:SetSize(130, 13);
     self.lyricsLineHeading:SetSize(130, 13);
@@ -584,9 +591,9 @@ function MainWindowClass:CreateLyricsWindow()
     self.lyricLineList:SetParent(self.lyricsBody);
     self.lyricLineList:SetVisible(true);
     self.lyricLineHScroll = Turbine.UI.Lotro.ScrollBar();
-    self.lyricLineHScroll:SetParent(self.lyricsBody);
+    self.lyricLineHScroll:SetParent(self.lyricsFrame);
     self.lyricLineHScroll:SetOrientation(Turbine.UI.Orientation.Horizontal);
-    self.lyricLineHScroll:SetBackColor(Turbine.UI.Color(1, .1, .1, .1));
+    self.lyricLineHScroll:SetBackColor(Turbine.UI.Color(1, 0.15, 0.15, 0.15));
     self.lyricLineList:SetHorizontalScrollBar(self.lyricLineHScroll);
     self.lyricLineList.SelectedIndexChanged = function(sender)
         if self.refreshingLyricsUI then return; end

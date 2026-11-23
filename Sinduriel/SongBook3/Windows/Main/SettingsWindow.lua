@@ -244,6 +244,13 @@ function SettingsWindow:Constructor()
                 songBook3Window:RefreshReadyCheck();
             end
         end, 280, 20);
+    -- Optional guard against accidentally starting unsynchronized playback
+    -- during a fellowship or raid performance. The Sync button is unaffected.
+    self.disableNormalPlayCheck = self:CreateCheckBox(
+        "cb_disableplayingroup", self:NextPos(), Main.Settings.DisableNormalPlayInGroup,
+        function(sender, args)
+            songBook3Window:SetDisableNormalPlayInGroup(sender:IsChecked());
+        end, 285, 20);
 -- /Band settings ----------------------------
 
 -- earlier edition settings --------------------------
