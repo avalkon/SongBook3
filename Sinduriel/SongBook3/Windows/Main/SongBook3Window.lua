@@ -231,8 +231,8 @@ function SongBook3Window:Constructor()
 	self.Instruments_List = {
 	{"Basic Harp"},
 	{"Misty Mountain Harp", "Summer Celebration Mountain Harp"},
-	{"Basic Lute"},
-	{"Lute of Ages", "Summer Celebration Lute"},
+	{"Basic Lute", "Summer Celebration Lute"},
+	{"Lute of Ages"},
 	{"Basic Theorbo", "Summer Celebration Theorbo"},
 	{"Traveller's Trusty Fiddle"},
 	{"Bardic Fiddle"},
