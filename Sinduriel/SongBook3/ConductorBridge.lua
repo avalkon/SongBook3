@@ -1,4 +1,4 @@
--- ConductorBridge 0.10.0, for Sinduriel SongBook3 v1.25.4.2.
+-- ConductorBridge 0.10.0, for Sinduriel SongBook3 v1.25.5.
 -- Import AFTER SongBook3Window is constructed. Writes only through Turbine.PluginData.
 import "Turbine.Gameplay";
 
@@ -228,6 +228,6 @@ function conductorBridgeCommand:GetHelp()
 end
 function conductorBridgeCommand:GetShortHelp() return "Conductor bridge status and SongBook selection"; end
 Turbine.Shell.AddCommand("conductor", conductorBridgeCommand);
-Print("Bridge 0.10.0 LOADED. Try /conductor diagnose");
+Print("Bridge 0.10.0 loaded");
 local ok, err = pcall(function() Report(true,false); end);
 if not ok then Print("initial report ERROR: " .. tostring(err)); end
