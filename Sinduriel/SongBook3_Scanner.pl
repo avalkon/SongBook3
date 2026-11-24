@@ -220,13 +220,11 @@ sub parse_abc {
             $t++;
         } elsif ($line =~ m/^C:[ \t]*(.*)/i) {
             # C: is treated as the original artist, as requested. Prefer the
-            # first nonempty credit for the whole ABC file. Also retain
-            # per-tune credits for multipart ABC files.
+            # first nonempty credit for the whole ABC file.
             my $credit = $1;
             $credit =~ s/^\s+|\s+$//g;
             if (length($credit)) {
                 $artist = $credit if !length($artist);
-                $tracks[-1]{Artist} = $credit if @tracks && !defined($tracks[-1]{Artist});
             }
         } elsif ($line =~ m/^%%part-name[ \t]+(.+)/i) {
             # Keep the ABC title for LOTRO playback/sync matching. The in-game
@@ -285,7 +283,6 @@ sub write_song_index {
             print {$out} "\t\t\t\t\tId = " . lua_quote($track->{Id}) . ";\n";
             print {$out} "\t\t\t\t\tName = " . lua_quote($track->{Name}) . ";\n" if defined $track->{Name};
             print {$out} "\t\t\t\t\tPartName = " . lua_quote($track->{PartName}) . ";\n" if defined $track->{PartName};
-            print {$out} "\t\t\t\t\tArtist = " . lua_quote($track->{Artist}) . ";\n" if defined $track->{Artist};
             print {$out} "\t\t\t\t};\n";
         }
         print {$out} "\t\t\t}\n";

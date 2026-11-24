@@ -24,7 +24,7 @@ func TestOutputAndGitExclusion(t *testing.T) {
 	if err := os.MkdirAll(out, 0755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(music, "Folk", "Baker Street.abc"), "X:1\nT:Baker Street (2:16) - Clarinet\nC:Gerry Rafferty\n%%part-name Clarinet\nX:2\nT:Baker Street - Lute\nC:Gerry Rafferty\n")
+	writeFile(t, filepath.Join(music, "Folk", "Baker Street.abc"), "X:1\nT:Baker Street (2:16) - Clarinet\nC:Gerry Rafferty\n%%part-name Clarinet\nX:2\nT:Baker Street - Lute\nC:Different track credit\n")
 	writeFile(t, filepath.Join(music, "Folk", ".git", "hidden.abc"), "X:1\nT:SECRET\n")
 	writeFile(t, filepath.Join(music, ".GIT", "hidden.abc"), "X:1\nT:SECRET2\n")
 	writeFile(t, filepath.Join(music, "lyrics", "Folk", "Baker Street.txt"), "First lyric\nSecond lyric\n")
@@ -45,6 +45,9 @@ func TestOutputAndGitExclusion(t *testing.T) {
 	}
 	if !strings.Contains(string(songs), `Artist = "Gerry Rafferty";`) || !strings.Contains(string(songs), `PartName = "Clarinet";`) {
 		t.Fatalf("metadata lost: %s", songs)
+	}
+	if strings.Count(string(songs), "Artist = ") != 1 || strings.Contains(string(songs), "Different track credit") {
+		t.Fatalf("expected only one song-level artist: %s", songs)
 	}
 	if strings.Contains(string(songs), "SECRET") || strings.Contains(string(lyrics), "HIDDEN LYRICS") {
 		t.Fatalf(".git data leaked")
@@ -105,5 +108,19 @@ func TestProgressReachesComplete(t *testing.T) {
 		if got[i] < got[i-1] {
 			t.Fatalf("progress regressed: %v", got)
 		}
+	}
+}
+
+func TestSongArtistFirstNonempty(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "song.abc")
+	writeFile(t, p, "X:1\nT:Song\nC:   \n%%part-name Clarinet\nX:2\nT:Song\nC: Artist A  \nC:Artist B\nX:3\nT:Song\nC:Artist C\n")
+	tracks, artist, err := parseABC(p)
+	if err != nil || artist != "Artist A" || len(tracks) != 3 || tracks[0].PartName != "Clarinet" {
+		t.Fatalf("unexpected metadata: %v %q %v", tracks, artist, err)
+	}
+	writeFile(t, p, "X:1\nT:No credit\n")
+	_, artist, err = parseABC(p)
+	if err != nil || artist != "" {
+		t.Fatalf("unexpected artist: %q %v", artist, err)
 	}
 }

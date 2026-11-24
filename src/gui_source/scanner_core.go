@@ -23,8 +23,8 @@ type Config struct {
 	Account    string `json:"Account"`
 }
 type Track struct {
-	Id, Name, PartName, Artist      string
-	HasName, HasPartName, HasArtist bool
+	Id, Name, PartName   string
+	HasName, HasPartName bool
 }
 type Song struct {
 	Filepath, Filename, Artist string
@@ -259,10 +259,6 @@ func parseABC(p string) ([]Track, string, error) {
 				if artist == "" {
 					artist = credit
 				}
-				if len(tracks) > 0 && !tracks[len(tracks)-1].HasArtist {
-					tracks[len(tracks)-1].Artist = credit
-					tracks[len(tracks)-1].HasArtist = true
-				}
 			}
 		} else if m := rxPart.FindStringSubmatch(line); m != nil {
 			part := strings.TrimSpace(m[1])
@@ -355,9 +351,6 @@ func renderSongs(songs []Song, dirs map[string]bool) []byte {
 			}
 			if tr.HasPartName {
 				fmt.Fprintf(w, "\t\t\t\t\tPartName = %s;\n", q(tr.PartName))
-			}
-			if tr.HasArtist {
-				fmt.Fprintf(w, "\t\t\t\t\tArtist = %s;\n", q(tr.Artist))
 			}
 			fmt.Fprint(w, "\t\t\t\t};\n")
 		}
