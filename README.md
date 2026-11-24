@@ -1,5 +1,5 @@
 <p align="center">
-<a href="https://github.com/avalkon/SongBook3/releases"><img src="https://img.shields.io/github/downloads/avalkon/SongBook3/total?label=Downloads" alt="Downloads" /></a>
+<img src="https://img.shields.io/github/downloads/avalkon/SongBook3/total?label=Downloads" alt="Downloads" />
  <img src="https://img.shields.io/badge/Windows-supported-0078D6?logo=windows&logoColor=white" alt="Windows" />
   <img src="https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=white" alt="Linux" />
   <img src="https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white" alt="macOS" />
